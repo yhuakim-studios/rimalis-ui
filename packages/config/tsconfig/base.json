@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "display": "Digistore base",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+
+    "strict": true,
+    // Beyond `strict`. `noUncheckedIndexedAccess` in particular is the one that
+    // catches `items[0].name` on an empty array — the single most common
+    // runtime crash in list-rendering code, which is most of a storefront.
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    // NOT enabled: noUnusedLocals / noUnusedParameters. They fail the build on
+    // a variable you commented out thirty seconds ago, which pushes people to
+    // turn strictness off wholesale. That belongs in lint, not the compiler.
+
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "forceConsistentCasingInFileNames": true,
+
+    // The API is deployed on Linux and developed on macOS. Case-insensitive
+    // filesystems hide a wrong-case import until CI, so it is worth the flag
+    // above being on everywhere.
+    "skipLibCheck": true
+  },
+  "exclude": ["node_modules", "dist", ".next", ".open-next"]
+}

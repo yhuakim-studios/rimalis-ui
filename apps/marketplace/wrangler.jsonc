@@ -1,0 +1,46 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "digistore-shop",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-07-01",
+
+  // nodejs_compat is REQUIRED by the OpenNext adapter — Next's server code
+  // pulls in Node built-ins that workerd only provides behind this flag.
+  "compatibility_flags": ["nodejs_compat"],
+
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+
+  "observability": {
+    "enabled": true
+  },
+
+  // TODO(domain): placeholder. Replace example.com throughout when the real
+  // domain is registered, and add the same origin to CORS_ORIGINS on the API
+  // only if a browser ever calls it directly — under the BFF it does not.
+  // Uncomment once the zone exists in this Cloudflare account.
+  // "routes": [
+  //   { "pattern": "shop.example.com", "custom_domain": true }
+  // ],
+
+  "vars": {
+    "API_BASE_PATH": "/api/v1"
+  }
+
+  // ISR / incremental cache. The adapter needs an R2 (or KV) binding to store
+  // revalidated pages. Nothing uses ISR yet, so the binding is declared but
+  // left commented: `wrangler deploy` resolves bindings against the account and
+  // errors on a bucket that does not exist, which would turn "we haven't built
+  // ISR yet" into a broken deploy for all three apps. (A local
+  // `--dry-run` does NOT catch this — it never contacts the API.)
+  //
+  // To enable: create the bucket, uncomment below, AND set `incrementalCache`
+  // in open-next.config.ts. The binding NAME is fixed by the adapter — it
+  // looks for exactly NEXT_INC_CACHE_R2_BUCKET.
+  //
+  // "r2_buckets": [
+  //   { "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "digistore-shop-cache" }
+  // ]
+}

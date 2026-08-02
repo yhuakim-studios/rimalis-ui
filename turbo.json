@@ -1,0 +1,41 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "ui": "tui",
+  "globalDependencies": ["**/.env.*local"],
+  "tasks": {
+    "build": {
+      // Each app depends on packages/types and packages/api-client, so those
+      // must be built first. `^build` is what expresses that — without it
+      // Turbo would happily build an app against a stale or missing dist.
+      "dependsOn": ["^build"],
+      "outputs": [".next/**", "!.next/cache/**", "dist/**", ".open-next/**"]
+    },
+    "typecheck": {
+      // Also `^build`, not `^typecheck`: typechecking an app needs the
+      // packages' emitted .d.ts files to exist, which only `build` produces.
+      "dependsOn": ["^build"]
+    },
+    "lint": {
+      "dependsOn": ["^build"]
+    },
+    "dev": {
+      // Long-running, and its output is a live server rather than files.
+      "cache": false,
+      "persistent": true
+    },
+    "preview": {
+      // Runs the built Worker locally under workerd. Depends on this package's
+      // own build, not just its dependencies'.
+      "dependsOn": ["build"],
+      "cache": false,
+      "persistent": true
+    },
+    "deploy": {
+      "dependsOn": ["build"],
+      "cache": false
+    },
+    "clean": {
+      "cache": false
+    }
+  }
+}

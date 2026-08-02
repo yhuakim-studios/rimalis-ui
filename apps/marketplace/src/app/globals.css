@@ -1,0 +1,8 @@
+@import "tailwindcss";
+
+/*
+ * Shared brand theme. Tailwind v4 is CSS-first — there is no JS preset to
+ * extend, so the shared layer is a CSS file imported after Tailwind itself.
+ * See packages/config/tailwind/theme.css.
+ */
+@import "@digistore/config/tailwind/theme.css";

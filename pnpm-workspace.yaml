@@ -1,0 +1,27 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+# Hoisting these keeps a single copy of the toolchain at the root, so all three
+# apps are guaranteed to build against the same React and Next. A version skew
+# between apps in one workspace is the kind of thing that only shows up as a
+# hydration error in production.
+publicHoistPattern:
+  - "*types*"
+  - "*eslint*"
+
+# pnpm 10 blocks postinstall scripts unless a package is listed here. These
+# three genuinely need theirs and fail in non-obvious ways without it:
+#
+#   workerd  — downloads the Cloudflare Workers runtime binary. Without it
+#              `pnpm preview` and `wrangler dev` cannot start, which is exactly
+#              the check that catches Node-vs-Workers runtime gaps BEFORE the
+#              first real deploy.
+#   esbuild  — downloads its platform binary; the OpenNext build bundles the
+#              Worker with it.
+#   sharp    — Next's image optimiser. Unused on Workers (see next.config.ts
+#              `unoptimized`) but Next still probes for it locally.
+onlyBuiltDependencies:
+  - workerd
+  - esbuild
+  - sharp
