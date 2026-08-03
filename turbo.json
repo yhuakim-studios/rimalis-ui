@@ -18,6 +18,16 @@
     "lint": {
       "dependsOn": ["^build"]
     },
+    "test": {
+      // `^build` for the same reason as typecheck: a test that imports a
+      // workspace package needs that package's dist to exist.
+      //
+      // Not every package defines `test`, and Turbo treats a missing script as
+      // a no-op rather than an error, so this does not force test files into
+      // packages that have nothing to test yet.
+      "dependsOn": ["^build"],
+      "outputs": []
+    },
     "dev": {
       // Long-running, and its output is a live server rather than files.
       "cache": false,

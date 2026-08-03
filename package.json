@@ -11,6 +11,7 @@
     "dev": "turbo dev",
     "typecheck": "turbo typecheck",
     "lint": "turbo lint",
+    "test": "turbo test",
     "clean": "turbo clean && rm -rf node_modules",
     "preview": "turbo preview",
     "deploy": "turbo deploy"

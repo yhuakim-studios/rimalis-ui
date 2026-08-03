@@ -25,8 +25,35 @@
   //   { "pattern": "shop.example.com", "custom_domain": true }
   // ],
 
+  // Plain (non-secret) runtime configuration. These are the variables the Worker
+  // reads from `process.env` at request time, so they MUST be here as well as in
+  // .env.local — a local `.env.local` is invisible to a deployed Worker.
+  //
+  // `NEXT_PUBLIC_API_URL` is deliberately absent: Next inlines every
+  // `NEXT_PUBLIC_*` value into the bundle at BUILD time, so declaring it here
+  // would create a second source of truth that is silently ignored. It comes
+  // from the build environment (.env.local locally, CI env in a pipeline).
+  //
+  // ⚠️ `SESSION_SECRET` must NOT be added here — `vars` are plaintext in the
+  // Cloudflare dashboard and in `wrangler deploy` output. Set it once per
+  // environment with:
+  //
+  //     npx wrangler secret put SESSION_SECRET
+  //
+  // `next.config.ts` validates the environment at build time, which catches an
+  // incomplete .env.local. It CANNOT catch a secret that was never uploaded to
+  // Cloudflare, because a local build has no view of the account. That check is
+  // a deploy step, not a build step: after the first deploy of an environment,
+  // confirm `npx wrangler secret list` shows SESSION_SECRET.
   "vars": {
-    "API_BASE_PATH": "/api/v1"
+    "API_BASE_PATH": "/api/v1",
+
+    // TODO(domain): placeholder, and a consequential one. This is interpolated
+    // into the Paystack `callbackUrl`, so a wrong value sends a shopper who has
+    // just been charged to a domain that does not serve /checkout/callback. It
+    // must also match APP_URL on digistore-api, which builds every emailed link
+    // from its own copy.
+    "APP_ORIGIN": "https://shop.example.com"
   }
 
   // ISR / incremental cache. The adapter needs an R2 (or KV) binding to store

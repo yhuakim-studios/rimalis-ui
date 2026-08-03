@@ -67,3 +67,11 @@ export const buildUrl = (config: ApiClientConfig, path: string): string => {
 
 /** Re-exported so consumers need only one import for the common case. */
 export type { ApiResponse };
+
+/**
+ * The Result union every endpoint method will return. Landed in Phase 0 rather
+ * than Phase 1 because it is a pure type module with no dependencies, and
+ * writing it in the app first would have meant moving it a phase later for no
+ * benefit. Nothing consumes it yet — `http.ts` is Phase 1.
+ */
+export * from "./result";

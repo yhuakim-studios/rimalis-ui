@@ -7,17 +7,51 @@
  * each app's `globals.css` after `@import "tailwindcss"`. Same intent, current
  * mechanism; don't go looking for a preset that no longer exists.
  *
- * Deliberately minimal. Three brand colours and nothing else — a design system
- * invented before a single real screen exists is a design system that gets
- * thrown away. Extend this once the marketplace is built (Part C), which is the
- * same reasoning that keeps packages/ui empty for now.
+ * This file was deliberately three colours and two font stacks through Part B,
+ * on the grounds that a design system invented before a real screen exists is a
+ * design system that gets thrown away. Part C is that real screen, so the rest
+ * of the tokens land here now. See docs/decisions/0006-design-system-tokens.md
+ * and Universal_UI_Design_System_Prompt.md.
  *
  * The greens match the CTA colour already used by the transactional emails in
  * digistore-api (templates/layout.ts), so a customer sees one brand across the
- * receipt and the site.
+ * receipt and the site. That is also why they survived the redesign unchanged
+ * and why brand-600 is the product's ONE accent — see the rule below.
+ *
+ * ---------------------------------------------------------------------------
+ * FOUR RULES THIS FILE EXISTS TO ENFORCE. Read them before adding a token.
+ * ---------------------------------------------------------------------------
+ *
+ * 1. ONE ACCENT. `brand-600` is it. Every other colour here is a neutral, or
+ *    `danger` (destructive/invalid only). There is no secondary accent, and
+ *    `--color-success` is an ALIAS of brand-700 rather than a new hue — added
+ *    so "in stock" and "paid" read as brand rather than as a second colour.
+ *    Adding a blue/amber/purple accent is the single fastest way to lose the
+ *    calm editorial feel this palette exists to produce.
+ *
+ * 2. NO CUSTOM SPACING SCALE, ON PURPOSE. Tailwind v4's default
+ *    `--spacing: 0.25rem` already emits exactly the guide's 8-point set:
+ *      p-1 p-2 p-3 p-4  p-5  p-6  p-8  p-10 p-12 p-16 p-20 p-24
+ *       4   8  12  16   20   24   32   40   48   64   80   96  px
+ *    A custom scale would only rename what already exists. So the 8-point
+ *    rhythm is enforced by DISCIPLINE: never an odd step (`p-7`, `gap-9`,
+ *    `mt-11`) and never an arbitrary value (`p-[13px]`). The Phase 1 audit
+ *    greps for `-\[[0-9]` precisely to catch the second one.
+ *
+ * 3. EXACTLY TWO SHADOWS. `shadow-raise` and `shadow-card`, both listed below.
+ *    Not "two per surface" — two in the entire product. And never a border and
+ *    a shadow on the same element; pick the one that carries the meaning.
+ *
+ * 4. NO DARK MODE. The guide specifies one light palette. Inventing a dark one
+ *    before anyone has asked is the same mistake keeping packages/ui empty was
+ *    meant to avoid. When it is wanted, it is a deliberate piece of work with
+ *    its own contrast pass — not a `dark:` variant sprinkled per component.
  */
 
 @theme {
+  /* -------------------------------------------------------------------------
+   * Brand — the one accent. oklch because these were tuned against #16a34a.
+   * ---------------------------------------------------------------------- */
   --color-brand-50: oklch(0.98 0.02 152);
   --color-brand-100: oklch(0.95 0.05 152);
   --color-brand-500: oklch(0.65 0.17 152);
@@ -25,6 +59,127 @@
   --color-brand-700: oklch(0.5 0.14 152);
   --color-brand-900: oklch(0.32 0.09 152);
 
+  /* -------------------------------------------------------------------------
+   * Neutrals — the guide's warm greys, as a named scale rather than a ramp.
+   *
+   * Named by ROLE, not by lightness, so a component cannot pick the wrong one
+   * by counting: `text-ink-muted` says what it is for, `text-neutral-500` does
+   * not. Two of these are derived rather than quoted from the guide, noted
+   * inline, because the guide gives a palette and not a full set of roles.
+   * ---------------------------------------------------------------------- */
+  --color-canvas: #f7f7f5; /* page background — never pure white */
+  --color-surface: #ffffff; /* cards, inputs, sheets, dialogs */
+
+  --color-ink: #111111; /* primary text, headings */
+  --color-ink-muted: #707070; /* secondary text, labels. 4.6:1 on canvas — AA
+                               * for body text, and only just, so do not darken
+                               * the canvas or lighten this without redoing the
+                               * sum. */
+  --color-ink-subtle: #9a9a97; /* DERIVED. 2.6:1 on canvas, which FAILS AA at
+                                * every size. Metadata and decoration only:
+                                * text that is redundant with something else
+                                * already on screen. NEVER the only copy of a
+                                * fact, never a price, never an error. */
+
+  --color-divider: #ececec; /* hairlines between rows/sections */
+  --color-divider-strong: #dededa; /* DERIVED. Input and secondary-button
+                                    * borders, which need a visible edge that
+                                    * `divider` is too faint to give. */
+
+  --color-danger: #b42318; /* the guide's "red only when required" */
+  --color-danger-soft: #fef3f2; /* danger background — tint, not fill */
+
+  --color-success: var(--color-brand-700); /* ALIAS. See rule 1: this is the
+                                            * accent at a darker step, not a
+                                            * second colour. */
+
+  /* -------------------------------------------------------------------------
+   * Radius — per component role, not one global value. A 24px card and a 16px
+   * input inside it is the guide's intent; the same radius on both flattens
+   * the hierarchy.
+   * ---------------------------------------------------------------------- */
+  --radius-card: 24px;
+  --radius-input: 16px;
+  --radius-button: 16px;
+  --radius-modal: 28px;
+  --radius-pill: 999px;
+
+  /* -------------------------------------------------------------------------
+   * Shadow — see rule 3. `raise` is for something lifted off the page
+   * (dropdown, sticky bar); `card` is for a resting surface.
+   * ---------------------------------------------------------------------- */
+  --shadow-raise: 0 10px 30px rgb(0 0 0 / 0.05);
+  --shadow-card: 0 8px 24px rgb(0 0 0 / 0.06);
+
+  /* -------------------------------------------------------------------------
+   * Type — six steps, each a size/line-height/weight triple so the pairing
+   * cannot come apart. Line heights sit in the guide's 130–150% band except
+   * `display`, which is tighter because large type needs less leading.
+   *
+   * Six is the whole scale. A seventh step is how a type system stops being a
+   * system, so reach for weight or colour before inventing a size.
+   * ---------------------------------------------------------------------- */
+  --text-display: 3.5rem; /* 56px — one per page, the hero */
+  --text-display--line-height: 1.05;
+  --text-display--letter-spacing: -0.02em;
+  --text-display--font-weight: 700;
+
+  --text-heading: 2.25rem; /* 36px — page titles */
+  --text-heading--line-height: 1.15;
+  --text-heading--letter-spacing: -0.015em;
+  --text-heading--font-weight: 600;
+
+  --text-section: 1.625rem; /* 26px — section headers */
+  --text-section--line-height: 1.25;
+  --text-section--letter-spacing: -0.01em;
+  --text-section--font-weight: 600;
+
+  --text-body: 1rem; /* 16px — the default. Never smaller for body copy. */
+  --text-body--line-height: 1.5;
+
+  --text-caption: 0.8125rem; /* 13px — labels, badges, helper text */
+  --text-caption--line-height: 1.4;
+  --text-caption--font-weight: 500;
+
+  --text-meta: 0.75rem; /* 12px — the floor. Timestamps, SKUs, counts. */
+  --text-meta--line-height: 1.4;
+
+  /* -------------------------------------------------------------------------
+   * Layout — `content` is the reading measure every page container uses;
+   * `shell` is the wider bound for full-bleed headers and footers.
+   * ---------------------------------------------------------------------- */
+  --container-content: 1320px;
+  --container-shell: 1440px;
+
+  /* -------------------------------------------------------------------------
+   * Motion. `ease-out-soft` decelerates hard, which is what makes a 200ms
+   * transition read as responsive rather than slow.
+   *
+   * No duration tokens: the guide's 150–250ms band is already exactly
+   * Tailwind's built-in `duration-150` / `duration-200`, so use those two and
+   * nothing else. No `duration-500`, no scroll-driven animation, no parallax.
+   * ---------------------------------------------------------------------- */
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* Skeletons over spinners, per the guide — so the shimmer is a token rather
+   * than re-declared in every loading.tsx. */
+  --animate-shimmer: shimmer 1.2s ease-in-out infinite;
+
+  @keyframes shimmer {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.45;
+    }
+  }
+
+  /* -------------------------------------------------------------------------
+   * Fonts. System stack on purpose: a webfont is 1–2 render-blocking requests
+   * and a layout shift, and the guide's "premium" reads from spacing, weight
+   * and restraint rather than from a licensed typeface.
+   * ---------------------------------------------------------------------- */
   --font-sans:
     ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica,
     Arial, sans-serif;
