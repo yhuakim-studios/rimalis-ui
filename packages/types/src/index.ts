@@ -1,51 +1,39 @@
 /**
  * Shared DTOs mirroring the digistore-api contract.
  *
- * EMPTY ON PURPOSE — this is Part B (scaffold), and populating it is Part C.
- * The package exists now so the dependency graph, the build order and the
- * emitted-types plumbing are all proven before any real type depends on them.
+ * ## How these were produced, and how to extend them
  *
- * When it is filled in, two rules from the API side carry over and are easy to
- * get wrong from the frontend:
+ * Transcribed from `digistore-api/openapi.json` — which is generated from the
+ * Zod schemas that actually validate the requests, so it cannot drift from the
+ * code — and then **checked against live responses**. Both halves were
+ * necessary: three shapes in that document were wrong when this was written
+ * (`data` typed as one `Category` where an array is returned; a bare array where
+ * `{ vendor, items }` is returned; and one schema shared by the browse and
+ * detail endpoints, which differ). See the digistore-api commit
+ * `fix(docs): correct three response shapes the OpenAPI document got wrong`,
+ * which fixed the document rather than working around it.
  *
- * 1. **Money is a string, not a number.** Every monetary field on the wire
- *    (`basePrice`, `vendorPrice`, `effectivePrice`, `grandTotal`, `unitPrice`,
- *    `vendorPayout`, …) serialises as a JSON string, because the API keeps it
- *    as a Prisma `Decimal` end-to-end to avoid float drift. Typing any of them
- *    as `number` reintroduces exactly the bug the API went to some trouble to
- *    remove. See digistore-api ADJUSTMENTS #5.
- * 2. **The response envelope is uniform.** Success is
- *    `{ success: true, data, meta? }`; failure is
- *    `{ success: false, error, code?, requestId? }`. The two types below are
- *    the only part of the contract stable enough to commit to today.
+ * The lesson for whoever adds the next module: read the document, then curl the
+ * endpoint. A generated spec proves the request validation is accurate. It does
+ * not prove the response shape is, because nothing on that side compares a
+ * generated envelope to a real body.
+ *
+ * ## Why hand-written rather than generated
+ *
+ * ADR-0001. A generator would emit every admin and vendor DTO as well, and the
+ * comments are the actual value here — `MarketplaceListing.id` vs `product.id`,
+ * `minPrice=0` being a 400 rather than "no minimum", `images` being possibly
+ * empty. None of that survives codegen, and all of it is what a caller gets
+ * wrong.
+ *
+ * ## What is deliberately absent
+ *
+ * The `auth`, `user`, `order` and `payment` DTOs land with the phases that use
+ * them (2, 4, 5, 6). Writing them now would mean guessing nullability for
+ * endpoints nothing calls yet, and a wrong guess is worse than an absence: an
+ * absence is a compile error today, a wrong `| null` is a crash in production
+ * months from now.
  */
 
-/** Monetary amounts cross the wire as decimal strings. Never `number`. */
-export type Money = string;
-
-export interface ApiSuccess<TData, TMeta = undefined> {
-  success: true;
-  data: TData;
-  meta?: TMeta;
-}
-
-export interface ApiFailure {
-  success: false;
-  error: string;
-  /** Machine-readable code, e.g. `LISTING_HAS_OPEN_ORDERS`. Not on every error. */
-  code?: string;
-  /** Present on 500s — quote it in a bug report and it finds the server log. */
-  requestId?: string;
-}
-
-export type ApiResponse<TData, TMeta = undefined> =
-  | ApiSuccess<TData, TMeta>
-  | ApiFailure;
-
-/** Pagination shape returned in `meta` by every list endpoint. */
-export interface PaginationMeta {
-  page: number;
-  limit: number;
-  total: number;
-  totalPages: number;
-}
+export * from "./common";
+export * from "./catalog";
