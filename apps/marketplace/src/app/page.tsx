@@ -1,31 +1,83 @@
+import { PackageSearch } from "lucide-react";
+import { Container } from "@/components/layout";
+import { EmptyState, ErrorState } from "@/components/feedback";
+import { HeroSection } from "@/components/marketplace/HeroSection";
+import { CategoryCircles } from "@/components/marketplace/CategoryCircles";
+import { TrendingProducts } from "@/components/marketplace/TrendingProducts";
+import { PromoBanners } from "@/components/marketplace/PromoBanners";
+import { FeaturedCollections } from "@/components/marketplace/FeaturedCollections";
+import { TrustBar } from "@/components/marketplace/TrustBar";
+import { loadHomeData } from "@/lib/home";
+
 /**
- * Placeholder. Public storefront.
+ * The home page.
  *
- * Part B is the scaffold: buildable empty shells that prove the workspace,
- * the shared config and the Cloudflare deploy path all work, with ZERO API
- * coupling. Features are Part C.
+ * A Server Component that fetches once and passes props down. The six sections are
+ * `"use client"` for their carousels and hover state, and under the BFF (ADR-0003)
+ * a client component cannot call the API — `lib/api.ts` is `server-only`, so
+ * trying is a build error rather than a production CORS failure. `loadHomeData()`
+ * is where the shaping lives and where the reasoning is written down.
  *
- * Browse, product detail, cart, checkout — built first, end to end.
+ * ## Failure and emptiness are handled here, not per section
+ *
+ * One request feeds every data-driven section, so one failure affects all of them
+ * together and belongs in one place. But the **static** sections still render: a
+ * home page that goes blank because a Supabase query timed out is the worst
+ * available first impression, and keeping the hero and the trust bar up costs one
+ * `if`. The hero renders either way, with an empty sidebar if the catalogue is
+ * unreachable.
+ *
+ * ## No `revalidate`, deliberately
+ *
+ * `open-next.config.ts` is `defineCloudflareConfig({})`, so the adapter's
+ * `incrementalCache` defaults to `"dummy"` — any `revalidate` added now is a silent
+ * no-op, which is worse than no caching because the next person would trust it.
+ * Phase 8 creates the R2 bucket and adds it as one change that can be verified with
+ * a cache HIT.
  */
-export default function Page() {
+
+export const dynamic = "force-dynamic";
+
+export default async function HomePage() {
+  const home = await loadHomeData();
+
   return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col justify-center gap-6 px-6">
-      <div>
-        <p className="text-sm font-medium text-brand-600">Public storefront</p>
-        <h1 className="mt-1 text-4xl font-bold tracking-tight">Digistore</h1>
-      </div>
+    <div className="bg-canvas min-h-screen pb-12">
+      <Container width="shell">
+        {/* 1. Hero Section (Category Sidebar + Main Banner) */}
+        <HeroSection categories={home.categories} />
 
-      <p className="text-zinc-600">
-        Scaffold only — no features yet. This shell exists to prove the
-        workspace builds and deploys before any API contract is consumed.
-      </p>
+        {home.error ? (
+          // Inline, between the static sections, so the page survives. `ErrorState`
+          // picks its copy from `error.kind`, which is what keeps a timeout from
+          // being reported as "nothing found" — see the note in that component.
+          <ErrorState error={home.error} title="We couldn't load the catalogue" />
+        ) : home.trending.length === 0 ? (
+          <EmptyState
+            icon={<PackageSearch className="size-7" strokeWidth={1.5} />}
+            title="No products yet"
+            body="Vendors are still setting up their stores. Check back shortly."
+            action={{ label: "Browse the catalogue", href: "/products" }}
+          />
+        ) : (
+          <>
+            {/* 2. Browse By Categories */}
+            <CategoryCircles categories={home.categories} />
 
-      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-        <dt className="text-zinc-500">Dev port</dt>
-        <dd className="font-mono">3000</dd>
-        <dt className="text-zinc-500">Deploys to</dt>
-        <dd className="font-mono">shop.example.com</dd>
-      </dl>
-    </main>
+            {/* 3. Trending Right Now ⚡ */}
+            <TrendingProducts products={home.trending} />
+          </>
+        )}
+
+        {/* 4. Dual Promotional Banners — static marketing, see the component */}
+        <PromoBanners />
+
+        {/* 5. Featured Stores (was "Collections" — see the component for why) */}
+        {!home.error && <FeaturedCollections stores={home.stores} />}
+
+        {/* 6. Trust & Security Bar */}
+        <TrustBar />
+      </Container>
+    </div>
   );
 }
