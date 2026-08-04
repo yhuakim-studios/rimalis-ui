@@ -33,7 +33,12 @@ type Size = ButtonSize;
  */
 const VARIANTS: Record<Variant, string> = {
   primary:
-    "bg-brand-600 text-white hover:bg-brand-700 active:bg-brand-900 " +
+    // Hover LIGHTENS (brand-500), press DARKENS (brand-900). That looks backwards
+    // next to the other variants until you remember the accent is black: there is
+    // no step darker than brand-600 big enough to see, and `hover:bg-brand-700`
+    // measured 1.12:1 against the fill — a button that stopped responding. The
+    // ramp comment in packages/config/tailwind/theme.css has the numbers.
+    "bg-brand-600 text-white hover:bg-brand-500 active:bg-brand-900 " +
     // The ring would be invisible against the fill, so invert it. See the
     // `[data-focus-inset]` rule in globals.css.
     "disabled:bg-brand-600/40",

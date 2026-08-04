@@ -60,7 +60,11 @@ export function TrendingProducts({ products }: { products: readonly ProductCardV
               <h2 className="text-2xl font-bold tracking-tight text-ink font-sans">
                 Trending Right Now
               </h2>
-              <span className="text-amber-500 text-xl">⚡</span>
+              {/* `text-amber-500` was dropped: a colour emoji paints from its own
+                  font colour table and ignores `text-*` entirely, so the class was
+                  inert — it only registered as a second accent to the audit grep
+                  (rule 1 in theme.css). The emoji looks identical without it. */}
+              <span className="text-xl">⚡</span>
             </div>
             <p className="text-caption text-ink-muted mt-1">
               Top picks that everyone is loving this week.

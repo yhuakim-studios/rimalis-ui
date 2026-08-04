@@ -13,21 +13,16 @@
  * of the tokens land here now. See docs/decisions/0006-design-system-tokens.md
  * and Universal_UI_Design_System_Prompt.md.
  *
- * The greens match the CTA colour already used by the transactional emails in
- * digistore-api (templates/layout.ts), so a customer sees one brand across the
- * receipt and the site. That is also why they survived the redesign unchanged
- * and why brand-600 is the product's ONE accent — see the rule below.
- *
  * ---------------------------------------------------------------------------
  * FOUR RULES THIS FILE EXISTS TO ENFORCE. Read them before adding a token.
  * ---------------------------------------------------------------------------
  *
- * 1. ONE ACCENT. `brand-600` is it. Every other colour here is a neutral, or
- *    `danger` (destructive/invalid only). There is no secondary accent, and
- *    `--color-success` is an ALIAS of brand-700 rather than a new hue — added
- *    so "in stock" and "paid" read as brand rather than as a second colour.
- *    Adding a blue/amber/purple accent is the single fastest way to lose the
- *    calm editorial feel this palette exists to produce.
+ * 1. ONE ACCENT. `brand-600` is it, and it is BLACK. Every other colour here is
+ *    a neutral, or `danger` (destructive/invalid only). There is no secondary
+ *    accent, and `--color-success` is an ALIAS of brand-700 rather than a new
+ *    hue — so "in stock" and "paid" read as brand rather than as a second
+ *    colour. Adding a blue/amber/purple accent is the single fastest way to
+ *    lose the calm editorial feel this palette exists to produce.
  *
  * 2. NO CUSTOM SPACING SCALE, ON PURPOSE. Tailwind v4's default
  *    `--spacing: 0.25rem` already emits exactly the guide's 8-point set:
@@ -50,14 +45,49 @@
 
 @theme {
   /* -------------------------------------------------------------------------
-   * Brand — the one accent. oklch because these were tuned against #16a34a.
+   * Brand — the one accent, and it is BLACK.
+   *
+   * Plain hex, not oklch. The old ramp was oklch because it was tuned around a
+   * hue (#16a34a, 152°); a neutral has no hue to tune, so oklch would only
+   * obscure values that are legible as hex.
+   *
+   * ## The ramp runs LIGHT -> DARK, and 500 is the hover step
+   *
+   * A black accent has a problem the green did not: **there is no darker step**.
+   * The green went 600 -> 700 on hover and dropped L* 53.6 -> 44.2, a 9.5-point
+   * perceptual step you could see. Black at 600 leaves 700 and 900 almost no
+   * room — measured, `#1f1f1f` -> `#141414` is 1.12:1, which on a filled button
+   * is no hover at all. An interactive affordance that stops responding is a bug,
+   * not a style choice.
+   *
+   * So a filled black button LIGHTENS on hover, to `brand-500`, and darkens to
+   * `brand-900` when pressed. `#333331` was picked by measurement, not by eye:
+   * it is dL* = 9.4 from brand-600, matching the green's 9.5 almost exactly, so
+   * the button keeps the same perceptual feedback the design already had.
+   *
+   * The ramp is still MONOTONIC — higher number = darker — because a ramp where
+   * 700 is lighter than 600 is a trap for whoever reads it next. `brand-500`
+   * being the hover is a fact about the button, recorded in Button.tsx.
+   *
+   * ## The tints lost their hue signal, and gained a lightness one
+   *
+   * `brand-50` is a badge/active-filter background on a warm canvas. The green
+   * tint (#effdf2) was only 1.02:1 against `canvas` — it never separated by
+   * LIGHTNESS at all, it separated by HUE, and a monochrome accent has none to
+   * spend. `#ebebe8` is 1.11:1 against canvas and 1.19:1 against surface: five
+   * times the lightness separation the green had, which is what now does the
+   * work. Do not lighten it back toward the canvas "to look subtler" — it would
+   * disappear, and 34 usages depend on it reading as a tint.
    * ---------------------------------------------------------------------- */
-  --color-brand-50: oklch(0.98 0.02 152);
-  --color-brand-100: oklch(0.95 0.05 152);
-  --color-brand-500: oklch(0.65 0.17 152);
-  --color-brand-600: oklch(0.58 0.16 152); /* #16a34a — the email CTA green */
-  --color-brand-700: oklch(0.5 0.14 152);
-  --color-brand-900: oklch(0.32 0.09 152);
+  --color-brand-50: #ebebe8; /* tint background — badges, active filter rows */
+  --color-brand-100: #d8d8d4; /* tint border, one visible step above brand-50 */
+  --color-brand-500: #333331; /* HOVER for filled buttons. Lighter than 600 on
+                               * purpose — see the note above. */
+  --color-brand-600: #1f1f1f; /* THE ACCENT. Reads as black; 16.5:1 with white
+                               * text, 15.4:1 as text or a focus ring on canvas. */
+  --color-brand-700: #141414; /* text on a brand-50 tint (15.4:1). NOT the button
+                               * hover — that is brand-500. */
+  --color-brand-900: #000000; /* true black — the pressed/active state */
 
   /* -------------------------------------------------------------------------
    * Neutrals — the guide's warm greys, as a named scale rather than a ramp.
@@ -91,7 +121,22 @@
 
   --color-success: var(--color-brand-700); /* ALIAS. See rule 1: this is the
                                             * accent at a darker step, not a
-                                            * second colour. */
+                                            * second colour.
+                                            *
+                                            * ⚠️ Now that the accent is black,
+                                            * this resolves to #141414 — visually
+                                            * the same as `ink` (#111111). So
+                                            * `text-success` no longer carries any
+                                            * meaning on its own: black-on-white
+                                            * "In stock" reads as ordinary body
+                                            * text, not as a positive state.
+                                            * Currently zero usages, so nothing is
+                                            * broken today. Whoever first needs a
+                                            * success state must convey it with a
+                                            * word, an icon or a tinted chip
+                                            * (bg-brand-50), NOT with this colour
+                                            * — and must not solve it by adding a
+                                            * green back. */
 
   /* -------------------------------------------------------------------------
    * Radius — per component role, not one global value. A 24px card and a 16px
