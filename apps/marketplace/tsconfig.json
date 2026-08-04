@@ -1,5 +1,17 @@
 {
   "extends": "@digistore/config/tsconfig/next.json",
+  "compilerOptions": {
+    // The `@/*` alias lives here, per app, not in the shared preset — see the
+    // long note in packages/config/tsconfig/next.json for why. Short version: a
+    // relative `paths` entry resolves against the tsconfig that DECLARES it, so
+    // in the preset it pointed at `packages/config/tsconfig/src/*`. `tsc`
+    // tolerated it once `baseUrl` was set in the extending config; Turbopack did
+    // not, which meant the app typechecked cleanly and failed to bundle.
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
   "exclude": ["node_modules", ".next", ".open-next"]
 }

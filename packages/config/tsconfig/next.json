@@ -8,13 +8,26 @@
     "noEmit": true,
     "allowJs": true,
     "incremental": true,
-    "plugins": [{ "name": "next" }],
+    "plugins": [{ "name": "next" }]
 
-    // Path aliases are a frontend-only convention here. digistore-api
-    // deliberately has none — see its ARCHITECTURE.md — so don't "unify" them.
-    "paths": {
-      "@/*": ["./src/*"]
-    }
+    // NO `paths` HERE, deliberately — it used to declare `"@/*": ["./src/*"]`
+    // and that did not work.
+    //
+    // A relative `paths` entry is resolved against the directory of the tsconfig
+    // that DECLARES it. Declared here, `@/lib/api` means
+    // `packages/config/tsconfig/src/lib/api`, which exists nowhere. Setting
+    // `baseUrl` in the extending app config does not rescue it: `tsc` re-anchors
+    // in that case, but Turbopack does not, so the app typechecked and failed to
+    // bundle — the worst split to debug, because the editor and `tsc` both said
+    // the import was fine.
+    //
+    // So each app declares its own `@/*` alongside its own `baseUrl`. That reads
+    // as duplication and is not: "./src" only means anything relative to a
+    // specific app, and there is no value this file could hold that is correct
+    // for all three.
+    //
+    // Path aliases stay a frontend-only convention. digistore-api deliberately
+    // has none — see its ARCHITECTURE.md — so don't "unify" them.
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
   "exclude": ["node_modules", ".next", ".open-next"]

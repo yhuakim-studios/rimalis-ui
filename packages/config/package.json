@@ -6,7 +6,7 @@
   "exports": {
     "./tsconfig/base.json": "./tsconfig/base.json",
     "./tsconfig/next.json": "./tsconfig/next.json",
-    "./tsconfig/package.json": "./tsconfig/package.json",
+    "./tsconfig/library.json": "./tsconfig/library.json",
     "./tailwind/theme.css": "./tailwind/theme.css"
   },
   "scripts": {

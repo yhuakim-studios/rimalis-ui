@@ -1,8 +1,27 @@
 {
-  "extends": "@digistore/config/tsconfig/package.json",
+  "extends": "@digistore/config/tsconfig/library.json",
   "compilerOptions": {
     "outDir": "dist",
-    "rootDir": "src"
+    "rootDir": "src",
+
+    // `@types/node` rather than adding "DOM" to `lib`, and the distinction is
+    // the point rather than a detail.
+    //
+    // This package needs `fetch`, `Response`, `Headers`, `AbortSignal`,
+    // `URLSearchParams` and `setTimeout` — web-standard globals that exist in
+    // workerd, in Node 18+ and in the browser alike. Both options declare them.
+    //
+    // The difference is what ELSE they declare. `"DOM"` also brings `window`,
+    // `document` and `localStorage`, which is precisely the set ADR-0003 says
+    // must never appear in this package: the client runs server-side inside
+    // route handlers and Server Components, and the whole point of the BFF is
+    // that the access token never reaches anywhere those APIs could read it.
+    //
+    // `@types/node` declares the globals we use and none of the ones we must
+    // not, so `document.cookie` in here is a compile error instead of a code
+    // review someone has to remember to do. Turning a convention into a type
+    // error is cheaper than enforcing it.
+    "types": ["node"]
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"]
 }

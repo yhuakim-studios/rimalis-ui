@@ -1,5 +1,51 @@
+import { existsSync } from "node:fs";
+import { dirname, join } from "node:path";
 import type { NextConfig } from "next";
 import { parseEnv } from "./src/lib/env.schema";
+
+/*
+ * ⚠️ NEVER RUN `next build` WHILE `next dev` IS SERVING THIS APP.
+ *
+ * They share `.next`, and they are not compatible tenants. `next dev` keeps its
+ * chunk graph under `.next/dev` but resolves against manifests and `.next/static`
+ * that a production build overwrites wholesale. The dev server does not notice;
+ * it keeps serving and starts throwing resolution errors for packages that are
+ * installed and perfectly resolvable on disk.
+ *
+ * This is written down because the symptom points nowhere near the cause. It
+ * presented as `Error: Cannot find module 'lucide-react'` on a 500 from `/`,
+ * which reads as a dependency problem — and `lucide-react` was installed, in the
+ * lockfile, symlinked correctly, and compiling fine in the production build the
+ * whole time. Several hours went into resolution, tsconfig and Turbopack theories
+ * before the timestamps gave it away: `.next/BUILD_ID` was newer than the dev
+ * server's own start time.
+ *
+ * If you need both at once, give the build its own directory:
+ *
+ *     next build --experimental-build-mode … # or
+ *     NEXT_DIST_DIR=.next-build next build   # with `distDir` read from env
+ *
+ * Otherwise: stop dev, `rm -rf .next`, build, then restart dev. Wiping `.next`
+ * is also the fix once the two have already collided — nothing short of that
+ * clears the mixed state.
+ */
+
+/**
+ * The monorepo root — the directory holding `pnpm-workspace.yaml`.
+ *
+ * Walks up from the working directory. Falls back to the working directory if the
+ * marker is never found, which is the right failure: Turbopack then infers a root
+ * as it did before, rather than being pinned to something wrong.
+ */
+function workspaceRoot(): string {
+  let dir = process.cwd();
+  for (;;) {
+    if (existsSync(join(dir, "pnpm-workspace.yaml"))) return dir;
+    const parent = dirname(dir);
+    if (parent === dir) return process.cwd();
+    dir = parent;
+  }
+}
 
 /*
  * Fail the BUILD on a bad environment, not the first request that needs it.
@@ -24,6 +70,31 @@ parseEnv(process.env);
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+
+  turbopack: {
+    // Pin the workspace root. Turbopack infers it from lockfiles, and on this
+    // machine it inferred `/Users/yhuakim` — from a stray `package-lock.json` in
+    // the home directory, which outranked this repo's own `pnpm-workspace.yaml`.
+    //
+    // That is not cosmetic. The inferred root anchors module resolution and every
+    // path in the build output, so with the wrong one, error messages name files
+    // relative to the home directory. It surfaced as a warning that was easy to
+    // skim past, alongside 38 resolution errors that had a different cause — two
+    // separate problems arriving together.
+    //
+    // It must be the MONOREPO root, not this app: `packages/types` and
+    // `packages/api-client` are outside the app directory, and Turbopack will not
+    // compile files outside its root.
+    //
+    // Found by walking up for `pnpm-workspace.yaml` rather than by a literal
+    // `"../.."`, because this file has no reliable notion of its own location:
+    // `import.meta.dirname` inside a compiled Next config resolved to
+    // `src/app`, which set the root to a directory with no `next` package in it
+    // and produced a *different* confusing error. `process.cwd()` is dependable
+    // (Turbo and pnpm both run the script from the package directory) and the
+    // walk makes the depth irrelevant.
+    root: workspaceRoot(),
+  },
 
   // Workspace packages ship compiled JS + .d.ts from their own `tsc` build, so
   // Next does NOT need to transpile them. If a package later ships raw TS or

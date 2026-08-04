@@ -1,0 +1,41 @@
+{
+  // RENAMED from `package.json`, which is why this file has a header comment.
+  //
+  // The old name read nicely at the call site — `extends:
+  // "@digistore/config/tsconfig/package.json"` — and it was a real bug. Node,
+  // pnpm and every bundler treat ANY file named `package.json` as a package
+  // manifest and parse it as strict JSON. This file is JSONC: it has comments,
+  // which are legal in a tsconfig and are a syntax error in a manifest.
+  //
+  // Turbopack found it, failed to parse it, and then — because a failed manifest
+  // parse aborts its workspace-root inference — resolved the apps' `@/*` alias
+  // relative to THIS directory instead of the app's. The visible symptom was 38
+  // "Can't resolve '@/components/...'" errors, with one line buried among them
+  // reading `aliased to relative './src/components/catalogue' inside of
+  // packages/config/tsconfig`. Nothing pointed at a filename.
+  //
+  // It went unnoticed through the whole scaffold because `tsc` is more forgiving
+  // here than a bundler is, and no app code used the `@/` alias until Phase 1.
+  //
+  // Do not rename it back. `library.json` reads fine and cannot be mistaken for
+  // a manifest.
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "display": "Digistore library package",
+  "extends": "./base.json",
+  "compilerOptions": {
+    // Libraries EMIT, unlike the apps — Next compiles app code itself, but a
+    // workspace package has to hand real .js and .d.ts to its consumers.
+    "noEmit": false,
+    "outDir": "dist",
+    "rootDir": "src",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+
+    // Composite + incremental so Turbo's cache and tsc's own build info agree
+    // on what needs rebuilding.
+    "composite": true
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  "exclude": ["node_modules", "dist"]
+}
