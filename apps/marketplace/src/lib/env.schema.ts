@@ -124,15 +124,50 @@ export const envSchema = z.object({
 export type Env = z.infer<typeof envSchema>;
 
 /**
- * Parses and returns the environment, or throws with every problem listed.
+ * The BUILD-time contract: the same schema, minus the two variables a build has
+ * no way to know and no business knowing.
+ *
+ * `next build` and the deployed Worker do NOT see the same environment, and
+ * pretending otherwise is what broke CI. On Cloudflare, `SESSION_SECRET` is a
+ * Worker *secret* (`wrangler secret put`) and `APP_ORIGIN` is a `vars` entry in
+ * `wrangler.jsonc` — both are injected into the isolate at request time and are
+ * absent from the build container. Requiring them here failed every Workers
+ * Build with `SESSION_SECRET: missing`, and the only way to satisfy it would
+ * have been to copy the session key into the build environment as well, which
+ * spreads a secret to a second place to fix a check that was asking the wrong
+ * question.
+ *
+ * `NEXT_PUBLIC_API_URL` stays required, because that one genuinely IS a build
+ * input — Next inlines `NEXT_PUBLIC_*` into the bundle, so a missing value is
+ * baked in permanently and no amount of correct runtime configuration recovers
+ * it. `API_BASE_PATH` has a default.
+ *
+ * Note `.optional()`, not `.or(z.string())`: a value that IS present is still
+ * fully validated. So a malformed `SESSION_SECRET` in a local `.env.local` —
+ * the mistake this file was written to catch — still fails the build, exactly
+ * as before. Only *absence* is tolerated, and only absence is what CI has.
+ */
+export const buildEnvSchema = envSchema.extend({
+  SESSION_SECRET: sessionSecret.optional(),
+  APP_ORIGIN: origin.optional(),
+});
+
+export type BuildEnv = z.infer<typeof buildEnvSchema>;
+
+/**
+ * Formats a failed parse as one line per variable, or returns the value.
  *
  * The formatting matters more than it looks. Zod's default `ZodError` message
  * is a JSON blob; a build that fails with a JSON blob gets skimmed, and the
  * skimmer concludes the build is broken rather than that their `.env.local` is
  * incomplete. One line per variable, naming the variable, is the difference.
  */
-export function parseEnv(source: Record<string, string | undefined>): Env {
-  const result = envSchema.safeParse(source);
+function parse<T extends z.ZodType>(
+  schema: T,
+  source: Record<string, string | undefined>,
+  hint: string[],
+): z.infer<T> {
+  const result = schema.safeParse(source);
   if (result.success) return result.data;
 
   const lines = result.error.issues.map((issue) => {
@@ -144,14 +179,27 @@ export function parseEnv(source: Record<string, string | undefined>): Env {
   });
 
   throw new Error(
-    [
-      "",
-      "Invalid environment for @rimalis/marketplace:",
-      "",
-      ...lines,
-      "",
-      "Copy apps/marketplace/.env.example to apps/marketplace/.env.local and fill it in.",
-      "",
-    ].join("\n"),
+    ["", "Invalid environment for @rimalis/marketplace:", "", ...lines, "", ...hint, ""].join("\n"),
   );
+}
+
+/**
+ * The full contract. Use at RUNTIME, where every variable must be present.
+ */
+export function parseEnv(source: Record<string, string | undefined>): Env {
+  return parse(envSchema, source, [
+    "Locally: copy apps/marketplace/.env.example to apps/marketplace/.env.local and fill it in.",
+    "On Cloudflare: `wrangler secret put SESSION_SECRET`, and set APP_ORIGIN in `vars` in wrangler.jsonc.",
+  ]);
+}
+
+/**
+ * The build-time subset. Use from `next.config.ts` and anywhere that is
+ * evaluated while `next build` collects page data.
+ */
+export function parseBuildEnv(source: Record<string, string | undefined>): BuildEnv {
+  return parse(buildEnvSchema, source, [
+    "Copy apps/marketplace/.env.example to apps/marketplace/.env.local and fill it in.",
+    "In CI, set NEXT_PUBLIC_API_URL as a build environment variable — it is inlined at build time.",
+  ]);
 }

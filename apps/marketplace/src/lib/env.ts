@@ -1,17 +1,17 @@
 import "server-only";
 
-import { parseEnv, type Env } from "./env.schema";
+import { parseBuildEnv, type BuildEnv } from "./env.schema";
 
 /**
  * The validated environment, read exactly once.
  *
  * ## Why `server-only`
  *
- * `SESSION_SECRET` is in this object. A single `import { env } from "@/lib/env"`
- * from a Client Component would inline it into the browser bundle, and nothing
- * about that would look wrong in review — the import reads identically to every
- * other import. `server-only` turns it into a build error with a message that
- * names the offending file.
+ * `sessionSecret()` below returns the session key. A single
+ * `import { sessionSecret } from "@/lib/env"` from a Client Component would
+ * inline it into the browser bundle, and nothing about that would look wrong in
+ * review — the import reads identically to every other import. `server-only`
+ * turns it into a build error with a message that names the offending file.
  *
  * ## Why `NEXT_PUBLIC_API_URL` is not public
  *
@@ -35,8 +35,58 @@ import { parseEnv, type Env } from "./env.schema";
  * environment from the one the build validated. Parsing here means the first
  * import of this module in a Worker isolate either succeeds or fails the whole
  * isolate, which is the behaviour you want from configuration.
+ *
+ * ## Why this is the BUILD schema, not the full one
+ *
+ * This module is not only imported by a running Worker. `api.ts` imports it,
+ * every page imports `api.ts`, and `next build` evaluates all of them while it
+ * collects page data — in a build container that has no `SESSION_SECRET` and no
+ * `APP_ORIGIN`, because on Cloudflare those arrive at request time (a secret and
+ * a `vars` entry respectively). A full parse here fails the build for variables
+ * the build does not use, which is what broke CI immediately after
+ * `next.config.ts` was fixed to stop doing the same thing.
+ *
+ * So the eager parse covers exactly what is safe to demand at build time, and
+ * the two runtime-only values are read through the accessors below.
  */
-export const env: Env = parseEnv(process.env);
+export const env: BuildEnv = parseBuildEnv(process.env);
+
+/**
+ * The session key, validated on first use.
+ *
+ * A function rather than a constant because there is no single moment at which
+ * both "this module was imported" and "we are serving a request" are true — the
+ * build imports it too. Calling this from request-handling code gets the
+ * fail-fast behaviour the constant used to provide, at the first moment the
+ * value is actually needed and therefore actually knowable.
+ *
+ * The error names the fix, because the failure mode it replaces is a deploy
+ * that goes green and then throws inside `jose` on the first login with a
+ * message about key length.
+ */
+export function sessionSecret(): string {
+  const value = env.SESSION_SECRET;
+  if (value === undefined) {
+    throw new Error(
+      "SESSION_SECRET is not set in this environment. On Cloudflare, set it with `wrangler secret put SESSION_SECRET`; locally, add it to apps/marketplace/.env.local.",
+    );
+  }
+  return value;
+}
+
+/**
+ * This app's own public origin, validated on first use. See `sessionSecret()`
+ * for why it is a function.
+ */
+export function appOrigin(): string {
+  const value = env.APP_ORIGIN;
+  if (value === undefined) {
+    throw new Error(
+      "APP_ORIGIN is not set in this environment. Set it in `vars` in apps/marketplace/wrangler.jsonc; locally, add it to apps/marketplace/.env.local.",
+    );
+  }
+  return value;
+}
 
 /**
  * Config for `@rimalis/api-client`, assembled once from the same source.
