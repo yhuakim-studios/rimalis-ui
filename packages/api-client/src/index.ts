@@ -1,5 +1,5 @@
 /**
- * The typed client for digistore-api.
+ * The typed client for rimalis-api.
  *
  * **This is the reason the three apps live in one repository.** Three separate
  * repos would each carry their own copy of the JWT refresh/rotation logic, and
@@ -20,7 +20,7 @@
  * ## Read ADR-0003 before adding auth calls here
  *
  * The browser never calls this API directly. Each Next.js app is a **BFF**: the
- * browser posts to that app's own route handler, which calls digistore-api
+ * browser posts to that app's own route handler, which calls rimalis-api
  * server-to-server and sets an `httpOnly; Secure; SameSite=Strict` cookie
  * scoped to **that one subdomain**.
  *
@@ -46,4 +46,4 @@ export * from "./http";
 export * as marketplace from "./marketplace";
 
 /** Re-exported so consumers need only one import for the common case. */
-export type { ApiResponse } from "@digistore/types";
+export type { ApiResponse } from "@rimalis/types";

@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ImageOff } from "lucide-react";
-import type { MarketplaceListing } from "@digistore/types";
+import type { MarketplaceListing } from "@rimalis/types";
 import { Badge, Card } from "@/components/primitives";
 import { formatMoney } from "@/lib/money";
 import { availabilityOf, imageAlt, primaryImage } from "@/lib/listing";

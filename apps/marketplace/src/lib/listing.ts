@@ -1,4 +1,4 @@
-import type { Category, MarketplaceListing, ProductImage } from "@digistore/types";
+import type { Category, MarketplaceListing, ProductImage } from "@rimalis/types";
 
 /**
  * Small derivations over catalogue DTOs.

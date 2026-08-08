@@ -1,17 +1,17 @@
-# digistore-uis
+# rimalis-uis
 
-The three Digistore frontends, in one pnpm + Turborepo workspace.
+The three Rimalis frontends, in one pnpm + Turborepo workspace.
 
 | App | Package | Dev port | Deploys to | Worker |
 | --- | --- | --- | --- | --- |
-| [apps/marketplace](apps/marketplace) | `@digistore/marketplace` | 3000 | `shop.example.com` | `digistore-shop` |
-| [apps/vendor](apps/vendor) | `@digistore/vendor` | 3001 | `vendor.example.com` | `digistore-vendor` |
-| [apps/admin](apps/admin) | `@digistore/admin` | 3002 | `admin.example.com` | `digistore-admin` |
+| [apps/marketplace](apps/marketplace) | `@rimalis/marketplace` | 3000 | `shop.example.com` | `rimalis-shop` |
+| [apps/vendor](apps/vendor) | `@rimalis/vendor` | 3001 | `vendor.example.com` | `rimalis-vendor` |
+| [apps/admin](apps/admin) | `@rimalis/admin` | 3002 | `admin.example.com` | `rimalis-admin` |
 
 > **`example.com` is a placeholder.** Search for it across `apps/*/wrangler.jsonc`
 > and `apps/*/.env.example` when the real domain is registered.
 
-The API ([`../digistore-api`](../digistore-api)) is **a separate repository with
+The API ([`../rimalis-api`](../rimalis-api)) is **a separate repository with
 its own Railway deploy** and is not part of this workspace. Per
 [ADR-0001](../docs/decisions/0001-repo-and-deploy-topology.md), the frontends
 share a repo and the API does not.
@@ -39,10 +39,10 @@ each file:
 
 ```bash
 pnpm install
-pnpm dev          # all three, ports 3000 / 3001 / 3002
+pnpm dev          # all three, ports 5173 / 5174 / 5175
 pnpm build        # packages then apps, in dependency order
 pnpm typecheck
-pnpm --filter @digistore/marketplace dev    # just one app
+pnpm --filter @rimalis/marketplace dev    # just one app
 ```
 
 Cloudflare, per app:
@@ -81,7 +81,7 @@ security model.
 Not yet connected — no Cloudflare account is wired up. When you do it:
 
 1. **Create the Worker per app.** From `apps/<app>`, `wrangler login` then
-   `pnpm deploy`. Names come from `wrangler.jsonc` (`digistore-shop`, etc.).
+   `pnpm deploy`. Names come from `wrangler.jsonc` (`rimalis-shop`, etc.).
 2. **Add the custom domain.** Uncomment the `routes` block in that app's
    `wrangler.jsonc` once the zone exists in the account, and replace
    `example.com`.
@@ -127,7 +127,7 @@ was no reason to pin backwards.
 **TypeScript 5.9, not 7.** TS 7 (the native port) is out and is what `npm view`
 recommends, but it is days old and the Next/Tailwind/eslint plugin ecosystem
 has not caught up. A scaffold is the wrong place to absorb that risk. It also
-keeps this in step with `digistore-api`, which is on 5.9.3.
+keeps this in step with `rimalis-api`, which is on 5.9.3.
 
 **Tailwind v4 has no JS presets.** The plan called for a "tailwind preset"; v4
 is CSS-first and `tailwind.config.js` no longer exists. The shared layer is

@@ -1,15 +1,15 @@
 /**
- * Shared DTOs mirroring the digistore-api contract.
+ * Shared DTOs mirroring the rimalis-api contract.
  *
  * ## How these were produced, and how to extend them
  *
- * Transcribed from `digistore-api/openapi.json` — which is generated from the
+ * Transcribed from `rimalis-api/openapi.json` — which is generated from the
  * Zod schemas that actually validate the requests, so it cannot drift from the
  * code — and then **checked against live responses**. Both halves were
  * necessary: three shapes in that document were wrong when this was written
  * (`data` typed as one `Category` where an array is returned; a bare array where
  * `{ vendor, items }` is returned; and one schema shared by the browse and
- * detail endpoints, which differ). See the digistore-api commit
+ * detail endpoints, which differ). See the rimalis-api commit
  * `fix(docs): correct three response shapes the OpenAPI document got wrong`,
  * which fixed the document rather than working around it.
  *

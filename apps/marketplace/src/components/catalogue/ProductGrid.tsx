@@ -1,4 +1,4 @@
-import type { MarketplaceListing } from "@digistore/types";
+import type { MarketplaceListing } from "@rimalis/types";
 import { ProductCard, ProductCardSkeleton } from "./ProductCard";
 
 /**

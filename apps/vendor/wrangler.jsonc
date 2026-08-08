@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "digistore-vendor",
+  "name": "rimalis-vendor",
   "main": ".open-next/worker.js",
   "compatibility_date": "2026-07-01",
 
@@ -41,6 +41,6 @@
   // looks for exactly NEXT_INC_CACHE_R2_BUCKET.
   //
   // "r2_buckets": [
-  //   { "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "digistore-vendor-cache" }
+  //   { "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "rimalis-vendor-cache" }
   // ]
 }

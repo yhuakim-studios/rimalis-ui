@@ -7,7 +7,7 @@
  * design system is built on (one accent, no custom spacing scale, exactly two
  * shadows, no dark mode).
  */
-@import "@digistore/config/tailwind/theme.css";
+@import "@rimalis/config/tailwind/theme.css";
 
 /*
  * App-level base styles. Deliberately short: anything that belongs to a

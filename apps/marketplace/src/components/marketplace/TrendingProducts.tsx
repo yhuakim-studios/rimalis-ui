@@ -11,7 +11,7 @@ import type { ProductCardView } from "@/lib/home";
  *
  * ## Three things changed when this was wired to the API
  *
- * **The star rating is gone, and it could not be kept.** `digistore-api` has no
+ * **The star rating is gone, and it could not be kept.** `rimalis-api` has no
  * rating, review or score field anywhere — not on `Product`, not on `VendorProduct`,
  * not on `OrderItem`. A hardcoded 4.8 on every tile is a claim about a real
  * merchant's goods that nothing backs, and shoppers read star ratings as fact. The

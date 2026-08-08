@@ -16,10 +16,10 @@ import { parseEnv, type Env } from "./env.schema";
  * ## Why `NEXT_PUBLIC_API_URL` is not public
  *
  * The name is inherited from Part B's scaffold and is now actively misleading.
- * Under the BFF (ADR-0003) the browser NEVER calls digistore-api: it calls this
+ * Under the BFF (ADR-0003) the browser NEVER calls rimalis-api: it calls this
  * app's route handlers and Server Actions, which call the API server-to-server.
  * A browser-side fetch to the API would also *appear* to work in development,
- * because the API's local `corsOrigins` allows `localhost:3000`, and then fail
+ * because the API's local `corsOrigins` allows `localhost:5173`, and then fail
  * completely in production, where `corsOrigins` is `[]`. That is a launch-day
  * bug hiding behind a green local test.
  *
@@ -39,7 +39,7 @@ import { parseEnv, type Env } from "./env.schema";
 export const env: Env = parseEnv(process.env);
 
 /**
- * Config for `@digistore/api-client`, assembled once from the same source.
+ * Config for `@rimalis/api-client`, assembled once from the same source.
  *
  * Here rather than at each call site so `baseUrl`/`basePath` cannot be passed
  * inconsistently — the two values only mean anything together.

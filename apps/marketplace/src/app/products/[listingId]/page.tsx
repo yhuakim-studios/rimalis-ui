@@ -104,7 +104,7 @@ export async function generateMetadata({
     title: `${listing.product.name} — ${listing.vendor.storeName}`,
     description:
       listing.product.description ??
-      `${listing.product.name} from ${listing.vendor.storeName} on Digistore.`,
+      `${listing.product.name} from ${listing.vendor.storeName} on Rimalis.`,
     openGraph: {
       title: listing.product.name,
       // `images` may be empty — spread rather than index, so a product with no

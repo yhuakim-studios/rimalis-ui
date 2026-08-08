@@ -6,7 +6,7 @@ import type {
   PaginationMeta,
   StorefrontListings,
   VendorPublic,
-} from "@digistore/types";
+} from "@rimalis/types";
 import { request, type RequestContext } from "./http";
 import type { Result } from "./result";
 

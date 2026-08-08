@@ -4,10 +4,10 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "Digistore — Nigeria's multi-vendor marketplace",
+    default: "Rimalis — Nigeria's multi-vendor marketplace",
     // Every page sets its own `title`; this frames it without each one repeating
     // the brand.
-    template: "%s · Digistore",
+    template: "%s · Rimalis",
   },
   description:
     "Shop electronics, audio and computing from vetted Nigerian vendors. One basket across every store.",

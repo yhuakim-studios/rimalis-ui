@@ -1,5 +1,5 @@
 {
-  "extends": "@digistore/config/tsconfig/next.json",
+  "extends": "@rimalis/config/tsconfig/next.json",
   "compilerOptions": {
     // The `@/*` alias lives here, per app, not in the shared preset — see the
     // long note in packages/config/tsconfig/next.json for why. Short version: a

@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "digistore-shop",
+  "name": "rimalis-shop",
   "main": ".open-next/worker.js",
   "compatibility_date": "2026-07-01",
 
@@ -51,7 +51,7 @@
     // TODO(domain): placeholder, and a consequential one. This is interpolated
     // into the Paystack `callbackUrl`, so a wrong value sends a shopper who has
     // just been charged to a domain that does not serve /checkout/callback. It
-    // must also match APP_URL on digistore-api, which builds every emailed link
+    // must also match APP_URL on rimalis-api, which builds every emailed link
     // from its own copy.
     "APP_ORIGIN": "https://shop.example.com"
   }
@@ -68,6 +68,6 @@
   // looks for exactly NEXT_INC_CACHE_R2_BUCKET.
   //
   // "r2_buckets": [
-  //   { "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "digistore-shop-cache" }
+  //   { "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "rimalis-shop-cache" }
   // ]
 }

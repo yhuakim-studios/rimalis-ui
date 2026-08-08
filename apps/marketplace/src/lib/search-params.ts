@@ -1,4 +1,4 @@
-import type { Category, ListListingsQuery, ListingSort } from "@digistore/types";
+import type { Category, ListListingsQuery, ListingSort } from "@rimalis/types";
 
 /**
  * The single owner of the catalogue URL's query string.

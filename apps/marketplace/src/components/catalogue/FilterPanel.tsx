@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { X } from "lucide-react";
-import type { Category } from "@digistore/types";
+import type { Category } from "@rimalis/types";
 import { Button, Input } from "@/components/primitives";
 import { buildCatalogueQuery, hasActiveFilters, type CatalogueParams } from "@/lib/search-params";
 import { buildCategoryTree, flattenTree } from "@/lib/listing";

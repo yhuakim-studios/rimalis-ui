@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const imgDir = '/Users/yhuakim/Desktop/my-projects/digistore-main/digistore-uis/apps/marketplace/public/images';
+const imgDir = '/Users/yhuakim/Desktop/my-projects/rimalis-main/rimalis-uis/apps/marketplace/public/images';
 
 if (!fs.existsSync(imgDir)) {
   fs.mkdirSync(imgDir, { recursive: true });

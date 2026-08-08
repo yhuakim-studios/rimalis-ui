@@ -17,13 +17,13 @@ importers:
 
   apps/admin:
     dependencies:
-      '@digistore/api-client':
+      '@rimalis/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
-      '@digistore/types':
+      '@rimalis/types':
         specifier: workspace:*
         version: link:../../packages/types
-      '@digistore/ui':
+      '@rimalis/ui':
         specifier: workspace:*
         version: link:../../packages/ui
       next:
@@ -36,7 +36,7 @@ importers:
         specifier: ^19.2.8
         version: 19.2.8(react@19.2.8)
     devDependencies:
-      '@digistore/config':
+      '@rimalis/config':
         specifier: workspace:*
         version: link:../../packages/config
       '@opennextjs/cloudflare':
@@ -66,13 +66,13 @@ importers:
 
   apps/marketplace:
     dependencies:
-      '@digistore/api-client':
+      '@rimalis/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
-      '@digistore/types':
+      '@rimalis/types':
         specifier: workspace:*
         version: link:../../packages/types
-      '@digistore/ui':
+      '@rimalis/ui':
         specifier: workspace:*
         version: link:../../packages/ui
       jose:
@@ -97,7 +97,7 @@ importers:
         specifier: ^4.4.3
         version: 4.4.3
     devDependencies:
-      '@digistore/config':
+      '@rimalis/config':
         specifier: workspace:*
         version: link:../../packages/config
       '@opennextjs/cloudflare':
@@ -130,13 +130,13 @@ importers:
 
   apps/vendor:
     dependencies:
-      '@digistore/api-client':
+      '@rimalis/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
-      '@digistore/types':
+      '@rimalis/types':
         specifier: workspace:*
         version: link:../../packages/types
-      '@digistore/ui':
+      '@rimalis/ui':
         specifier: workspace:*
         version: link:../../packages/ui
       next:
@@ -149,7 +149,7 @@ importers:
         specifier: ^19.2.8
         version: 19.2.8(react@19.2.8)
     devDependencies:
-      '@digistore/config':
+      '@rimalis/config':
         specifier: workspace:*
         version: link:../../packages/config
       '@opennextjs/cloudflare':
@@ -179,11 +179,11 @@ importers:
 
   packages/api-client:
     dependencies:
-      '@digistore/types':
+      '@rimalis/types':
         specifier: workspace:*
         version: link:../types
     devDependencies:
-      '@digistore/config':
+      '@rimalis/config':
         specifier: workspace:*
         version: link:../config
       '@types/node':
@@ -197,7 +197,7 @@ importers:
 
   packages/types:
     devDependencies:
-      '@digistore/config':
+      '@rimalis/config':
         specifier: workspace:*
         version: link:../config
       typescript:
@@ -206,7 +206,7 @@ importers:
 
   packages/ui:
     devDependencies:
-      '@digistore/config':
+      '@rimalis/config':
         specifier: workspace:*
         version: link:../config
       typescript:

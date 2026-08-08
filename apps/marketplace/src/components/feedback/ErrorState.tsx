@@ -1,7 +1,7 @@
 "use client";
 
 import { AlertTriangle, RotateCw } from "lucide-react";
-import { type ApiError, shopperMessage } from "@digistore/api-client";
+import { type ApiError, shopperMessage } from "@rimalis/api-client";
 import { Button } from "@/components/primitives";
 
 /**

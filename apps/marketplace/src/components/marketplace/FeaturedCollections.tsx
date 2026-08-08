@@ -16,7 +16,7 @@ import type { StoreView } from "@/lib/home";
  * to `womens-fashion`, `beauty-personal-care` and `home-living`. None of those
  * categories exist, so all four cards led to an empty results page.
  *
- * There is no collection, campaign or curation model in `digistore-api` to read
+ * There is no collection, campaign or curation model in `rimalis-api` to read
  * them from, and inventing one would mean hardcoding four category slugs and
  * hoping an admin never renames them. The two honest options were to delete the
  * section or to give it real content.

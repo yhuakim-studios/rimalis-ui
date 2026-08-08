@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import type { PaginationMeta } from "@digistore/types";
+import type { PaginationMeta } from "@rimalis/types";
 import { cn } from "@/components/primitives";
 import { buildCatalogueQuery, type CatalogueParams } from "@/lib/search-params";
 

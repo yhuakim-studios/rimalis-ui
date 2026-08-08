@@ -1,5 +1,5 @@
 {
-  "name": "@digistore/ui",
+  "name": "@rimalis/ui",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -18,7 +18,7 @@
     "clean": "rm -rf dist .turbo *.tsbuildinfo"
   },
   "devDependencies": {
-    "@digistore/config": "workspace:*",
+    "@rimalis/config": "workspace:*",
     "typescript": "^5.9.3"
   }
 }

@@ -1,5 +1,5 @@
 {
-  "extends": "@digistore/config/tsconfig/next.json",
+  "extends": "@rimalis/config/tsconfig/next.json",
   "compilerOptions": {
     // Per app, not in the shared preset — see the note in
     // packages/config/tsconfig/next.json.

@@ -46,7 +46,7 @@ export function Header() {
           <Link
             href="/"
             className="flex shrink-0 items-center gap-3 group"
-            aria-label="Digistore home"
+            aria-label="Rimalis home"
           >
             <div className="grid size-11 place-items-center rounded-2xl bg-ink text-white shadow-sm transition-transform duration-200 group-hover:scale-105">
               <ShoppingBag className="size-6" strokeWidth={2} />
@@ -54,8 +54,8 @@ export function Header() {
             <div className="flex flex-col">
               <span className="text-xl font-extrabold tracking-tight text-ink uppercase font-sans">
                 {/* Written in mixed case and uppercased by CSS, so a screen
-                    reader says "Digistore" rather than spelling out D-I-G-I. */}
-                Digistore
+                    reader says "Rimalis" rather than spelling out D-I-G-I. */}
+                Rimalis
               </span>
               <span className="text-[11px] font-medium text-ink-muted -mt-1 tracking-tight">
                 Live Better. Every Day.
@@ -167,13 +167,13 @@ export function Footer() {
               <div className="grid size-9 place-items-center rounded-xl bg-ink text-white">
                 <ShoppingBag className="size-5" strokeWidth={2} />
               </div>
-              <span className="text-lg font-bold text-ink tracking-tight uppercase">Digistore</span>
+              <span className="text-lg font-bold text-ink tracking-tight uppercase">Rimalis</span>
             </div>
             <p className="text-caption text-ink-muted max-w-sm">
               Live Better. Every Day. Your premier marketplace for curated lifestyle, high-tech electronics, fashion and modern living.
             </p>
             <p className="text-meta text-ink-subtle">
-              © 2026 Digistore Inc. All rights reserved.
+              © 2026 Rimalis Inc. All rights reserved.
             </p>
           </div>
 

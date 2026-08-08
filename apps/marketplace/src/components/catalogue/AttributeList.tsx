@@ -1,4 +1,4 @@
-import type { ProductAttribute } from "@digistore/types";
+import type { ProductAttribute } from "@rimalis/types";
 
 /**
  * Product specifications.

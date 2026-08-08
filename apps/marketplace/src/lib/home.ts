@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { ApiError } from "@digistore/api-client";
+import type { ApiError } from "@rimalis/api-client";
 import { catalogue, publicCtx } from "./api";
 import { formatMoney } from "./money";
 import { availabilityOf, imageAlt, primaryImage } from "./listing";

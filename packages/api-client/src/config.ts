@@ -8,7 +8,7 @@
 
 export interface ApiClientConfig {
   /**
-   * Origin of digistore-api, no trailing slash — e.g. `https://api.example.com`.
+   * Origin of rimalis-api, no trailing slash — e.g. `https://api.example.com`.
    * Comes from `NEXT_PUBLIC_API_URL`.
    */
   baseUrl: string;

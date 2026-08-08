@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import type { ListingSort } from "@digistore/types";
+import type { ListingSort } from "@rimalis/types";
 import { Select } from "@/components/primitives";
 import { buildCatalogueQuery, type CatalogueParams } from "@/lib/search-params";
 

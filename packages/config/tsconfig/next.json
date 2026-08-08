@@ -1,6 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
-  "display": "Digistore Next.js app",
+  "display": "Rimalis Next.js app",
   "extends": "./base.json",
   "compilerOptions": {
     "lib": ["DOM", "DOM.Iterable", "ES2022"],
@@ -26,7 +26,7 @@
     // specific app, and there is no value this file could hold that is correct
     // for all three.
     //
-    // Path aliases stay a frontend-only convention. digistore-api deliberately
+    // Path aliases stay a frontend-only convention. rimalis-api deliberately
     // has none — see its ARCHITECTURE.md — so don't "unify" them.
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],

@@ -1,4 +1,4 @@
-import type { ApiResponse } from "@digistore/types";
+import type { ApiResponse } from "@rimalis/types";
 import { buildUrl, type ApiClientConfig } from "./config";
 import { err, isRetryable, ok, type ApiError, type Result } from "./result";
 

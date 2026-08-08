@@ -13,7 +13,7 @@ import { PAGE_SIZE, parseCatalogueParams, toApiQuery, type RawSearchParams } fro
  *
  * ## `/store/` is SINGULAR, and that is a shipped contract
  *
- * Not a style choice. `digistore-api`'s notification templates hardcode
+ * Not a style choice. `rimalis-api`'s notification templates hardcode
  * `${APP_URL}/store/:slug` when they build transactional emails, so this path is
  * already in customers' inboxes. Pluralising it breaks every one of those links
  * retroactively, and nothing in either codebase would fail a build to tell you.
@@ -74,7 +74,7 @@ export async function generateMetadata({
   return {
     title: result.data.storeName,
     description:
-      result.data.description ?? `Shop ${result.data.storeName} on Digistore.`,
+      result.data.description ?? `Shop ${result.data.storeName} on Rimalis.`,
   };
 }
 
@@ -197,7 +197,7 @@ export default async function StorePage({
               body={
                 catalogueParams.q
                   ? `${vendor.storeName} may carry it under another name, or it may be listed by a different vendor.`
-                  : `${vendor.storeName} hasn't listed anything for sale yet. There is plenty elsewhere on Digistore.`
+                  : `${vendor.storeName} hasn't listed anything for sale yet. There is plenty elsewhere on Rimalis.`
               }
               action={{ label: "Browse all products", href: "/products" }}
             />

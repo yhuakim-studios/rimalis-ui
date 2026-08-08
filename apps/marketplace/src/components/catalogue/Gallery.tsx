@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { ImageOff } from "lucide-react";
 import { useState } from "react";
-import type { ProductImage } from "@digistore/types";
+import type { ProductImage } from "@rimalis/types";
 import { cn } from "@/components/primitives";
 import { imageAlt, primaryImage } from "@/lib/listing";
 

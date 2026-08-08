@@ -1,11 +1,11 @@
 {
-  "name": "@digistore/vendor",
+  "name": "@rimalis/vendor",
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --port 3001",
+    "dev": "next dev --port 5175",
     "build": "next build",
-    "start": "next start --port 3001",
+    "start": "next start --port 5175",
     "typecheck": "tsc --noEmit",
     "clean": "chmod -R u+w .open-next 2>/dev/null; rm -rf .next .open-next .turbo dist",
     "cf:build": "opennextjs-cloudflare build",
@@ -13,15 +13,15 @@
     "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy"
   },
   "dependencies": {
-    "@digistore/api-client": "workspace:*",
-    "@digistore/types": "workspace:*",
-    "@digistore/ui": "workspace:*",
+    "@rimalis/api-client": "workspace:*",
+    "@rimalis/types": "workspace:*",
+    "@rimalis/ui": "workspace:*",
     "next": "^16.2.12",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },
   "devDependencies": {
-    "@digistore/config": "workspace:*",
+    "@rimalis/config": "workspace:*",
     "@opennextjs/cloudflare": "^1.20.2",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^22.10.0",

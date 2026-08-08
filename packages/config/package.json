@@ -1,5 +1,5 @@
 {
-  "name": "@digistore/config",
+  "name": "@rimalis/config",
   "version": "0.1.0",
   "private": true,
   "files": ["tsconfig", "tailwind"],

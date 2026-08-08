@@ -22,7 +22,7 @@ next-env.d.ts
 *.tsbuildinfo
 
 # Env — every variant except the templates, which ARE tracked on purpose so a
-# fresh clone can see the contract. Same convention as digistore-api.
+# fresh clone can see the contract. Same convention as rimalis-api.
 .env
 .env.*
 !.env.example

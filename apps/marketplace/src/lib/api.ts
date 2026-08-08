@@ -1,19 +1,19 @@
 import "server-only";
 
-import { marketplace, type RequestContext } from "@digistore/api-client";
+import { marketplace, type RequestContext } from "@rimalis/api-client";
 import { apiConfig } from "./env";
 
 /**
- * The app's entry point into `@digistore/api-client`.
+ * The app's entry point into `@rimalis/api-client`.
  *
  * ## Why this file exists at all
  *
  * `server-only`. Every API call in this app goes through here, so this one
- * import makes a browser-side call to digistore-api a **build error** rather
+ * import makes a browser-side call to rimalis-api a **build error** rather
  * than a launch-day discovery.
  *
  * That matters more than it sounds. The API's local `corsOrigins` allows
- * `localhost:3000`, so a `fetch` from a Client Component works perfectly in
+ * `localhost:5173`, so a `fetch` from a Client Component works perfectly in
  * development. Production `corsOrigins` is `[]`, so the same code fails
  * completely — with a CORS error in the browser console, at which point the
  * instinct is to widen CORS on the API and thereby delete the BFF boundary that

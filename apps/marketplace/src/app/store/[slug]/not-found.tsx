@@ -19,7 +19,7 @@ export default function NotFound() {
       <EmptyState
         icon={<StoreIcon className="size-7" strokeWidth={1.5} />}
         title="This store isn't available"
-        body="It may have closed, or the link may be out of date. There are plenty of other vendors on Digistore."
+        body="It may have closed, or the link may be out of date. There are plenty of other vendors on Rimalis."
         action={{ label: "Browse all products", href: "/products" }}
       />
     </Container>

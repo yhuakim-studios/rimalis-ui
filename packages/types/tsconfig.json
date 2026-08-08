@@ -1,5 +1,5 @@
 {
-  "extends": "@digistore/config/tsconfig/library.json",
+  "extends": "@rimalis/config/tsconfig/library.json",
   "compilerOptions": {
     "outDir": "dist",
     "rootDir": "src"

@@ -7,7 +7,7 @@ import { ArrowRight } from "lucide-react";
 /**
  * Two promotional banners. Deliberately NOT wired to the API.
  *
- * There is no campaign, promotion or discount model in `digistore-api` — no
+ * There is no campaign, promotion or discount model in `rimalis-api` — no
  * percentage-off field, no sale window, no banner content type. So "Up To 50% Off
  * On Bestsellers" has nothing behind it and could not be made true by wiring;
  * making the copy dynamic would just move the invention somewhere less visible.

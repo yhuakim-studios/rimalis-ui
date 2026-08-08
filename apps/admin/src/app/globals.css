@@ -5,4 +5,4 @@
  * extend, so the shared layer is a CSS file imported after Tailwind itself.
  * See packages/config/tailwind/theme.css.
  */
-@import "@digistore/config/tailwind/theme.css";
+@import "@rimalis/config/tailwind/theme.css";

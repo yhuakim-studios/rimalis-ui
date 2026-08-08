@@ -1,11 +1,11 @@
 {
-  "name": "@digistore/marketplace",
+  "name": "@rimalis/marketplace",
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --port 3000",
+    "dev": "next dev --port 5173",
     "build": "next build",
-    "start": "next start --port 3000",
+    "start": "next start --port 5173",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "clean": "chmod -R u+w .open-next 2>/dev/null; rm -rf .next .open-next .turbo dist",
@@ -14,9 +14,9 @@
     "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy"
   },
   "dependencies": {
-    "@digistore/api-client": "workspace:*",
-    "@digistore/types": "workspace:*",
-    "@digistore/ui": "workspace:*",
+    "@rimalis/api-client": "workspace:*",
+    "@rimalis/types": "workspace:*",
+    "@rimalis/ui": "workspace:*",
     "jose": "^6.2.8",
     "lucide-react": "^1.28.0",
     "next": "^16.2.12",
@@ -26,7 +26,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@digistore/config": "workspace:*",
+    "@rimalis/config": "workspace:*",
     "@opennextjs/cloudflare": "^1.20.2",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^22.10.0",

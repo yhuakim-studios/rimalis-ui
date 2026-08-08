@@ -34,7 +34,7 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "All products",
-  description: "Browse every product across every vendor on Digistore.",
+  description: "Browse every product across every vendor on Rimalis.",
 };
 
 export default async function ProductsPage({

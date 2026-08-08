@@ -2,7 +2,7 @@
   // RENAMED from `package.json`, which is why this file has a header comment.
   //
   // The old name read nicely at the call site — `extends:
-  // "@digistore/config/tsconfig/package.json"` — and it was a real bug. Node,
+  // "@rimalis/config/tsconfig/package.json"` — and it was a real bug. Node,
   // pnpm and every bundler treat ANY file named `package.json` as a package
   // manifest and parse it as strict JSON. This file is JSONC: it has comments,
   // which are legal in a tsconfig and are a syntax error in a manifest.
@@ -20,7 +20,7 @@
   // Do not rename it back. `library.json` reads fine and cannot be mistaken for
   // a manifest.
   "$schema": "https://json.schemastore.org/tsconfig",
-  "display": "Digistore library package",
+  "display": "Rimalis library package",
   "extends": "./base.json",
   "compilerOptions": {
     // Libraries EMIT, unlike the apps — Next compiles app code itself, but a

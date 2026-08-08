@@ -29,7 +29,7 @@ import { CATEGORY_ICONS } from "./category-presentation";
  * since a real carousel needs banner content the API cannot yet provide.
  *
  * **"Gift Cards" was removed.** There is no gift-card concept anywhere in
- * `digistore-api` — no model, no endpoint, no payment path — so the link went to
+ * `rimalis-api` — no model, no endpoint, no payment path — so the link went to
  * `/gift-cards`, which 404s. A dead nav item in a black sidebar on the home page is
  * a promise the product cannot keep. "Top Offers" survives because it maps onto
  * something real: the catalogue sorted by ascending price.

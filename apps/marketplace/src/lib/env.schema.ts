@@ -28,7 +28,7 @@ const flag = z
  * An absolute origin with no trailing slash and no path.
  *
  * The no-trailing-slash rule is not fussiness: `buildUrl()` in
- * @digistore/api-client strips one, but `${APP_ORIGIN}/checkout/callback` is
+ * @rimalis/api-client strips one, but `${APP_ORIGIN}/checkout/callback` is
  * interpolated raw into the Paystack `callbackUrl`, and `https://x//checkout`
  * is a different path that will not match a route. Reject it here rather than
  * debug it after a real charge.
@@ -91,7 +91,7 @@ function decodedByteLength(base64url: string): number {
 
 export const envSchema = z.object({
   /**
-   * Origin of digistore-api. `NEXT_PUBLIC_` for historical reasons — see the
+   * Origin of rimalis-api. `NEXT_PUBLIC_` for historical reasons — see the
    * warning in `env.ts`; nothing in the browser may use it.
    */
   NEXT_PUBLIC_API_URL: origin,
@@ -146,7 +146,7 @@ export function parseEnv(source: Record<string, string | undefined>): Env {
   throw new Error(
     [
       "",
-      "Invalid environment for @digistore/marketplace:",
+      "Invalid environment for @rimalis/marketplace:",
       "",
       ...lines,
       "",
