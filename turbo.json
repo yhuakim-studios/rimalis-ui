@@ -40,7 +40,11 @@
       "cache": false,
       "persistent": true
     },
-    "deploy": {
+    // NOT named `deploy`. `pnpm deploy` is a BUILT-IN pnpm command (deploy a
+    // workspace package to a directory), and a built-in always shadows a
+    // same-named script — `pnpm deploy` never reaches this task, it exits with
+    // ERR_PNPM_NOTHING_TO_DEPLOY. The `cf:` prefix also matches `cf:build`.
+    "cf:deploy": {
       "dependsOn": ["build"],
       "cache": false
     },

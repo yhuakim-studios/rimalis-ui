@@ -9,9 +9,10 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "clean": "chmod -R u+w .open-next 2>/dev/null; rm -rf .next .open-next .turbo dist",
-    "cf:build": "opennextjs-cloudflare build",
-    "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
-    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy"
+    "cf:clean": "chmod -R u+w .open-next 2>/dev/null; rm -rf .open-next",
+    "cf:build": "pnpm cf:clean && opennextjs-cloudflare build",
+    "preview": "pnpm cf:build && opennextjs-cloudflare preview",
+    "cf:deploy": "pnpm cf:build && wrangler deploy"
   },
   "dependencies": {
     "@rimalis/api-client": "workspace:*",
