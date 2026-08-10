@@ -166,6 +166,20 @@ async function attempt<TData, TMeta>(
     return err(transportError(cause, timeout.aborted));
   }
 
+  // A 204 has no body by definition, and `res.json()` on one rejects with a
+  // SyntaxError — which the parse below would report as `malformed`, i.e. as a
+  // FAILURE on a request that succeeded. `DELETE /users/me/addresses/:id` is the
+  // one endpoint in the API that answers this way, and the bug it produces is
+  // the worst kind: the address really is deleted, the UI says it could not be,
+  // and the shopper tries again.
+  //
+  // Checked by status rather than by an empty-body sniff, because an empty
+  // 200 is a different thing — that would be an API bug and should still be
+  // reported as malformed rather than laundered into a success.
+  if (response.status === 204 || response.status === 205) {
+    return ok(undefined as TData, undefined as TMeta);
+  }
+
   // Parse before branching. The API's envelope is uniform, so `success` is the
   // discriminant and the status is a refinement — but a body that is not the
   // envelope at all has to be caught first, and that is the common production
