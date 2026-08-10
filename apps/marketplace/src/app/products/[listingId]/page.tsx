@@ -6,8 +6,9 @@ import { Container } from "@/components/layout";
 import { ErrorState } from "@/components/feedback";
 import { AttributeList, Gallery } from "@/components/catalogue";
 import { Badge, ButtonLink } from "@/components/primitives";
-import { AddToCartForm } from "@/components/cart";
+import { AddToCartForm, SaveButton } from "@/components/cart";
 import { catalogue, publicCtx } from "@/lib/api";
+import { readWishlist } from "@/lib/wishlist";
 import { formatMoney } from "@/lib/money";
 import { availabilityOf, primaryImage } from "@/lib/listing";
 
@@ -122,7 +123,12 @@ export default async function ProductPage({
   params: Promise<{ listingId: string }>;
 }) {
   const { listingId } = await params;
-  const result = await catalogue.getListing(publicCtx(), listingId);
+  const [result, saved] = await Promise.all([
+    catalogue.getListing(publicCtx(), listingId),
+    // The saved-items cookie, so the heart renders in its true state in the
+    // first byte rather than flipping after hydration.
+    readWishlist(),
+  ]);
 
   if (!result.ok) {
     // See the header: 404 and 400 both mean "no such thing at this URL", and a
@@ -214,11 +220,18 @@ export default async function ProductPage({
             `lib/listing.ts`. The form takes a number and a ceiling; it does not
             re-derive availability and cannot disagree with the badge above it.
           */}
-          <AddToCartForm
-            listingId={listing.id}
-            available={availability.kind === "out_of_stock" ? 0 : availability.available}
-            productName={product.name}
-          />
+          <div className="flex flex-wrap items-start gap-3">
+            <AddToCartForm
+              listingId={listing.id}
+              available={availability.kind === "out_of_stock" ? 0 : availability.available}
+              productName={product.name}
+            />
+            <SaveButton
+              listingId={listing.id}
+              productName={product.name}
+              saved={saved.includes(listing.id)}
+            />
+          </div>
 
           {product.description && (
             <section className="flex flex-col gap-3 border-t border-divider pt-6">
