@@ -1,8 +1,6 @@
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import type { PaginationMeta } from "@rimalis/types";
 import { cn } from "@/components/primitives";
-import { buildCatalogueQuery, type CatalogueParams } from "@/lib/search-params";
 
 /**
  * Page navigation.
@@ -21,6 +19,15 @@ import { buildCatalogueQuery, type CatalogueParams } from "@/lib/search-params";
  * ellipses where a gap is elided. Rendering all N pages is fine at 7 and
  * unusable at 400, and the seed is already at 7 with 20 listings — so the
  * windowing is needed now rather than later.
+ *
+ * ## Why it takes an `href` function rather than the catalogue's params
+ *
+ * It started coupled to `CatalogueParams` + `basePath`, which was right while
+ * the catalogue and the storefront were its only callers. Order history is the
+ * third, and its URL has a `status` filter and no notion of `sort` or `min` —
+ * so the choice was a second pager or one that does not know what a query string
+ * means. A `hrefForPage` callback keeps every caller's URL rules where they
+ * belong: with the page that owns that URL.
  *
  * ## `page` past the end
  *
@@ -59,20 +66,19 @@ export function pageWindow(current: number, total: number): Array<number | null>
 const SLOT =
   "grid size-11 place-items-center rounded-input text-caption transition-colors duration-150 ease-out-soft";
 
-export function Pagination({
-  meta,
-  params,
-  basePath,
-}: {
-  meta: PaginationMeta;
-  params: CatalogueParams;
-  /** `/products` or `/store/<slug>` — the pager is used by both. */
-  basePath: string;
-}) {
-  if (meta.totalPages <= 1) return null;
+export interface PaginationProps {
+  /** The page being shown. May exceed `totalPages` — see the header. */
+  page: number;
+  totalPages: number;
+  /** Builds the URL for a page number. The caller owns its own query string. */
+  hrefForPage: (page: number) => string;
+}
 
-  const href = (page: number) => `${basePath}${buildCatalogueQuery({ ...params, page })}`;
-  const slots = pageWindow(params.page, meta.totalPages);
+export function Pagination({ page, totalPages, hrefForPage }: PaginationProps) {
+  if (totalPages <= 1) return null;
+
+  const href = hrefForPage;
+  const slots = pageWindow(page, totalPages);
 
   return (
     <nav aria-label="Pagination" className="flex items-center justify-center gap-1 pt-4">
@@ -83,8 +89,8 @@ export function Pagination({
         for an unavailable action — unlike a link to `?page=0`, which the API
         would reject with a 400.
       */}
-      {params.page > 1 ? (
-        <Link href={href(params.page - 1)} aria-label="Previous page" className={cn(SLOT, "text-ink hover:bg-divider/60")}>
+      {page > 1 ? (
+        <Link href={href(page - 1)} aria-label="Previous page" className={cn(SLOT, "text-ink hover:bg-divider/60")}>
           <ChevronLeft className="size-5" strokeWidth={1.5} />
         </Link>
       ) : (
@@ -93,26 +99,26 @@ export function Pagination({
         </span>
       )}
 
-      {slots.map((page, index) =>
-        page === null ? (
+      {slots.map((slot, index) =>
+        slot === null ? (
           <span key={`gap-${index}`} className={cn(SLOT, "text-ink-subtle")} aria-hidden>
             &hellip;
           </span>
-        ) : page === params.page ? (
+        ) : slot === page ? (
           // `aria-current="page"` is what tells a screen reader which page this
           // is; the colour alone says it only to sighted users.
-          <span key={page} aria-current="page" className={cn(SLOT, "bg-ink font-medium text-white")}>
-            {page}
+          <span key={slot} aria-current="page" className={cn(SLOT, "bg-ink font-medium text-white")}>
+            {slot}
           </span>
         ) : (
-          <Link key={page} href={href(page)} className={cn(SLOT, "text-ink hover:bg-divider/60")}>
-            {page}
+          <Link key={slot} href={href(slot)} className={cn(SLOT, "text-ink hover:bg-divider/60")}>
+            {slot}
           </Link>
         ),
       )}
 
-      {params.page < meta.totalPages ? (
-        <Link href={href(params.page + 1)} aria-label="Next page" className={cn(SLOT, "text-ink hover:bg-divider/60")}>
+      {page < totalPages ? (
+        <Link href={href(page + 1)} aria-label="Next page" className={cn(SLOT, "text-ink hover:bg-divider/60")}>
           <ChevronRight className="size-5" strokeWidth={1.5} />
         </Link>
       ) : (

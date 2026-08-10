@@ -6,7 +6,13 @@ import { Container } from "@/components/layout";
 import { EmptyState, ErrorState } from "@/components/feedback";
 import { Pagination, ProductGrid, SortSelect } from "@/components/catalogue";
 import { catalogue, publicCtx } from "@/lib/api";
-import { PAGE_SIZE, parseCatalogueParams, toApiQuery, type RawSearchParams } from "@/lib/search-params";
+import {
+  PAGE_SIZE,
+  buildCatalogueQuery,
+  parseCatalogueParams,
+  toApiQuery,
+  type RawSearchParams,
+} from "@/lib/search-params";
 
 /**
  * A vendor's storefront.
@@ -204,7 +210,13 @@ export default async function StorePage({
           ) : (
             <>
               <ProductGrid listings={items} />
-              <Pagination meta={pagination} params={catalogueParams} basePath={basePath} />
+              <Pagination
+                page={catalogueParams.page}
+                totalPages={pagination.totalPages}
+                hrefForPage={(page) =>
+                  `${basePath}${buildCatalogueQuery({ ...catalogueParams, page })}`
+                }
+              />
             </>
           )}
         </div>
