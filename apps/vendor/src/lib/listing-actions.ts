@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { shopperMessage } from "@rimalis/api-client";
-import type { UpdateVendorListingBody } from "@rimalis/types";
+import type { CreateVendorListingBody, UpdateVendorListingBody } from "@rimalis/types";
 import { ctxFor, requireApprovedVendor, vendor } from "./auth";
 
 /**
@@ -77,14 +77,17 @@ function fieldErrorsOf(error: z.ZodError): Record<string, string> {
  *
  * Returns `undefined` for "leave alone", `null` for "clear", or a validated number.
  * See the header — this distinction is the point of the function.
+ *
+ * `clearName` is omitted on create, where there is no third case: nothing is set
+ * yet, so blank means "don't send the field" and can never mean "wipe it".
  */
 function readNumeric(
   formData: FormData,
   name: string,
-  clearName: string,
+  clearName: string | undefined,
   schema: z.ZodType<number>,
 ): { value: number | null | undefined } | { issue: string } {
-  if (formData.get(clearName) !== null) return { value: null };
+  if (clearName !== undefined && formData.get(clearName) !== null) return { value: null };
 
   const raw = String(formData.get(name) ?? "").trim();
   if (raw === "") return { value: undefined };
@@ -94,6 +97,79 @@ function readNumeric(
     return { issue: parsed.error.issues[0]?.message ?? "That value isn't valid." };
   }
   return { value: parsed.data };
+}
+
+/**
+ * Add a catalogue product to this store.
+ *
+ * ## Why the `null` machinery above is not used here
+ *
+ * On `POST /vendor/products` there is no "clear" case: `vendorPrice` and `stockCap`
+ * are optional, and **omitting them is the meaningful default** — the listing
+ * inherits the catalogue's `basePrice` and takes no cap. There is nothing to wipe
+ * because nothing is set yet, so an empty input can safely mean "don't send it".
+ * That is the opposite of the update endpoint, where the same empty input would
+ * clear a price the vendor set weeks ago.
+ *
+ * ## Adding something previously removed is a restore, not a create
+ *
+ * The API's `add()` finds the soft-deleted `VendorProduct` and restores it,
+ * **overwriting its price and cap with whatever this form sends** — including
+ * overwriting them with nulls when the fields are left blank. So a vendor re-adding
+ * a listing at "catalogue price" silently discards the override they had before.
+ * The form's copy says so; this action cannot detect it, since the API returns 201
+ * either way and does not report which branch it took.
+ */
+export async function createListing(
+  _previous: ListingState,
+  formData: FormData,
+): Promise<ListingState> {
+  const productId = String(formData.get("productId") ?? "");
+  if (!productId) return { error: "Something was missing from that request." };
+
+  const fieldErrors: Record<string, string> = {};
+
+  // No `clear` checkbox on this form — blank means absent, which is the correct
+  // default here. See `readNumeric`.
+  const price = readNumeric(formData, "vendorPrice", undefined, priceField);
+  const cap = readNumeric(formData, "stockCap", undefined, capField);
+  if ("issue" in price) fieldErrors["vendorPrice"] = price.issue;
+  if ("issue" in cap) fieldErrors["stockCap"] = cap.issue;
+  if (Object.keys(fieldErrors).length > 0) return { fieldErrors };
+
+  const body: CreateVendorListingBody = {
+    productId,
+    ...("value" in price && typeof price.value === "number" ? { vendorPrice: price.value } : {}),
+    ...("value" in cap && typeof cap.value === "number" ? { stockCap: cap.value } : {}),
+  };
+
+  const { session } = await requireApprovedVendor("/products/add");
+  const result = await vendor.createListing(ctxFor(session), body);
+
+  if (!result.ok) {
+    if (vendor.isDuplicateListing(result.error)) {
+      // 409 means a LIVE listing exists. Not a restore case — see the api-client's
+      // note on `isDuplicateListing`; there is nothing to restore.
+      return { error: "This product is already in your store. Find it under Live." };
+    }
+    if (vendor.isProductNotAvailable(result.error)) {
+      return {
+        error:
+          "Rimalis has withdrawn this product since this page loaded, so it can't be listed. Refresh to see what's still available.",
+      };
+    }
+    if (result.error.kind === "http" && result.error.status === 404) {
+      return { error: "That product no longer exists in the catalogue." };
+    }
+    return { error: shopperMessage(result.error) };
+  }
+
+  // The listing is live the moment it is created, so the storefront count, the
+  // products page and the "add" page's own already-listed markers all move.
+  revalidatePath("/products");
+  revalidatePath("/products/add");
+  revalidatePath("/");
+  return { message: `${result.data.product.name} is now in your store.` };
 }
 
 export async function updateListing(

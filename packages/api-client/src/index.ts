@@ -48,6 +48,7 @@ export * from "./config";
 export * from "./result";
 export * from "./http";
 export * as marketplace from "./marketplace";
+export * as categories from "./categories";
 export * as auth from "./auth";
 export * as users from "./users";
 export * as orders from "./orders";

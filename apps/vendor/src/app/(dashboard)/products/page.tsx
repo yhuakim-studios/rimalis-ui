@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { PackageOpen } from "lucide-react";
+import { PackageOpen, Plus } from "lucide-react";
 import { EmptyState, ErrorState } from "@/components/feedback";
 import { ListingCard } from "@/components/products";
-import { Card, Pagination, cn } from "@/components/primitives";
+import { ButtonLink, Card, Pagination, cn } from "@/components/primitives";
 import { ctxFor, requireApprovedVendor, vendor as vendorApi } from "@/lib/auth";
 import { pluralise } from "@/lib/format";
 
@@ -32,13 +32,15 @@ const PAGE_SIZE = 20;
  * a preference: there is no `deletedOnly` parameter, and rendering the raw response
  * would show every live listing under a heading that says Removed.
  *
- * ## There is no "add a product" button here
+ * ## "Add a product" adds a LISTING, and the copy has to keep saying so
  *
  * `POST /vendor/products` needs a `productId` from the **admin-managed pool** — a
- * vendor cannot create a product, only carry one that exists. Offering "Add product"
- * would promise authoring they do not have. Browsing that pool needs a catalogue
- * search this app does not yet have a screen for, so the honest state is a note saying
- * where listings come from, rather than a button that opens nothing.
+ * vendor cannot create a product, only carry one that exists. So the button goes to
+ * `/products/add`, which browses that pool via
+ * `GET /vendor/products/catalogue`; it is not a product form and must never grow
+ * into one. Until that endpoint existed there was no vendor-readable view of the
+ * catalogue at all, which is why this page previously carried a note instead of a
+ * button.
  */
 export default async function ProductsPage({
   searchParams,
@@ -87,11 +89,19 @@ export default async function ProductsPage({
 
   return (
     <div className="flex flex-col gap-5">
-      <div>
-        <h1 className="text-heading font-semibold tracking-tight">Products</h1>
-        <p className="text-caption text-ink-muted">
-          Your price and stock cap for each product you carry.
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-heading font-semibold tracking-tight">Products</h1>
+          <p className="text-caption text-ink-muted">
+            Your price and stock cap for each product you carry.
+          </p>
+        </div>
+        <ButtonLink
+          href="/products/add"
+          icon={<Plus className="size-5" strokeWidth={2} aria-hidden />}
+        >
+          Add a product
+        </ButtonLink>
       </div>
 
       <nav aria-label="Filter listings" className="flex gap-1 border-b border-divider">
@@ -135,9 +145,13 @@ export default async function ProductsPage({
             body={
               view
                 ? "Your live listings are on the first tab."
-                : "Listings come from the Rimalis product catalogue — you set your own price and stock cap for products you choose to carry. Ask an admin to add you to a product to get started."
+                : "Listings come from the Rimalis product catalogue — you choose which products to carry and set your own price and stock cap for each."
             }
-            {...(view ? { action: { label: "See live listings", href: "/products" } } : {})}
+            action={
+              view
+                ? { label: "See live listings", href: "/products" }
+                : { label: "Browse the catalogue", href: "/products/add" }
+            }
           />
         </Card>
       ) : (
