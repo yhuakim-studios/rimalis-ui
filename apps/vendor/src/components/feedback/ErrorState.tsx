@@ -1,8 +1,7 @@
 "use client";
 
-import { AlertTriangle, RotateCw } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { type ApiError, shopperMessage } from "@rimalis/api-client";
-import { Button } from "@/components/primitives";
 
 /**
  * Something went wrong that was not the shopper's fault.
@@ -39,18 +38,23 @@ export interface ErrorStateProps {
   /** The failure. Its `kind` decides the copy — see the header. */
   error: ApiError;
   /**
-   * Retry. Renders a button when provided.
+   * No `onRetry` callback, deliberately.
    *
-   * Omit it for a failure retrying cannot fix (a 400, a 403) — a Try again button
-   * that reliably fails again is worse than none, because the shopper concludes
-   * the site is broken rather than that they need to do something different.
+   * This component is a Client Component and every caller is a Server Component,
+   * and **a function cannot cross that boundary** — React throws "Functions cannot
+   * be passed directly to Client Components" during the render, which streams as an
+   * empty card rather than a build error. The chart hit exactly that with a
+   * `format` prop, and the symptom was invisible outside the RSC payload.
+   *
+   * A retry that a server page can actually offer is a `<Link>` to the same route
+   * or a `<form action={serverAction}>`, both of which are plain data across the
+   * boundary. Add it as a `retryHref` if it is ever needed — not as a callback.
    */
-  onRetry?: () => void;
   /** Names what failed, for an inline error inside a larger page. */
   title?: string;
 }
 
-export function ErrorState({ error, onRetry, title }: ErrorStateProps) {
+export function ErrorState({ error, title }: ErrorStateProps) {
   return (
     <div
       // `role="alert"` so the failure is announced when it replaces content the
@@ -66,12 +70,6 @@ export function ErrorState({ error, onRetry, title }: ErrorStateProps) {
         <h2 className="text-section text-ink">{title ?? "Something went wrong"}</h2>
         <p className="text-body text-ink-muted">{shopperMessage(error)}</p>
       </div>
-
-      {onRetry && (
-        <Button variant="secondary" onClick={onRetry} icon={<RotateCw className="size-5" strokeWidth={1.5} />}>
-          Try again
-        </Button>
-      )}
 
       {error.requestId && (
         // `text-meta` and `ink-subtle`: this is metadata that is redundant for
