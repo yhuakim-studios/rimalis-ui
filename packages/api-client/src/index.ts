@@ -16,6 +16,8 @@
  *   users.ts        the signed-in shopper's profile and addresses
  *   orders.ts       checkout and order history
  *   payments.ts     Paystack, via the API
+ *   vendor.ts       a seller's own store, listings, orders and fulfilment
+ *   payouts.ts      settlements — read-only, and deliberately so
  *
  * ---
  *
@@ -50,6 +52,8 @@ export * as auth from "./auth";
 export * as users from "./users";
 export * as orders from "./orders";
 export * as payments from "./payments";
+export * as vendor from "./vendor";
+export * as payouts from "./payouts";
 
 /** Re-exported so consumers need only one import for the common case. */
 export type { ApiResponse } from "@rimalis/types";

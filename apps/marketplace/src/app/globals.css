@@ -1,100 +1,19 @@
 @import "tailwindcss";
 
 /*
- * Shared brand theme. Tailwind v4 is CSS-first — there is no JS preset to
- * extend, so the shared layer is a CSS file imported after Tailwind itself.
- * See packages/config/tailwind/theme.css, which carries the four rules the
- * design system is built on (one accent, no custom spacing scale, exactly two
- * shadows, no dark mode).
+ * Shared brand theme, and every style the three apps hold in common: the four
+ * rules the design system is built on (one accent, no custom spacing scale,
+ * exactly two shadows, no dark mode), plus the base layer — canvas background,
+ * the GLOBAL `:focus-visible` ring, the reduced-motion rule — and the one
+ * `.container-page` utility.
+ *
+ * All of that moved OUT of this file when the vendor app became the second
+ * consumer. It was duplicated for exactly as long as there was one app, which is
+ * the right amount of time: a focus ring or a page measure that differs between
+ * two apps reads as a rendering bug in whichever one you noticed second, and
+ * nothing in a per-app copy stops them drifting.
+ *
+ * Anything genuinely local to one app still belongs in that app's copy of this
+ * file. Right now neither app has any, which is why both are three lines.
  */
 @import "@rimalis/config/tailwind/theme.css";
-
-/*
- * App-level base styles. Deliberately short: anything that belongs to a
- * component belongs in that component, and anything reusable across the three
- * apps belongs in theme.css. What is left is the handful of things that must be
- * true globally.
- */
-
-@layer base {
-  /*
-   * The canvas is warm off-white, never pure white — that contrast against
-   * `surface` is what makes cards read as cards without a border. `bg-white`
-   * here (the scaffold's value) collapses every card into the page.
-   */
-  html {
-    background-color: var(--color-canvas);
-
-    /* The guide asks for calm motion. Honour a shopper who has asked their OS
-     * for none: this pairs with the blanket reduced-motion rule below. */
-    scroll-behavior: smooth;
-  }
-
-  /*
-   * A GLOBAL focus ring, so "visible focus states" is a default rather than a
-   * per-component chore that gets forgotten on the twentieth component.
-   *
-   * `:focus-visible` and not `:focus`: the latter also fires on mouse clicks,
-   * which is why so many products strip focus rings entirely and end up
-   * unusable by keyboard. This gives keyboard users a ring and mouse users
-   * nothing, which is what both want.
-   *
-   * Components may reposition it (`outline-offset`) but must not remove it. If
-   * a ring looks wrong on some control, the control's padding is wrong.
-   */
-  :focus-visible {
-    outline: 2px solid var(--color-brand-600);
-    outline-offset: 2px;
-    border-radius: 4px;
-  }
-
-  /*
-   * Ring on a dark/brand fill would be invisible against itself, so invert it
-   * there. Opt in with `data-focus-inset` on the element.
-   */
-  [data-focus-inset]:focus-visible {
-    outline-color: var(--color-surface);
-    outline-offset: -4px;
-  }
-
-  /*
-   * Every transition and animation in the product is 150–200ms ease-out, so
-   * disabling them wholesale for a shopper who has asked for reduced motion
-   * costs nothing but the shimmer. `0.01ms` rather than `0` because a 0s
-   * animation never fires its `animationend` event, which breaks anything
-   * waiting on one.
-   */
-  @media (prefers-reduced-motion: reduce) {
-    html {
-      scroll-behavior: auto;
-    }
-
-    *,
-    *::before,
-    *::after {
-      animation-duration: 0.01ms !important;
-      animation-iteration-count: 1 !important;
-      transition-duration: 0.01ms !important;
-    }
-  }
-}
-
-@layer utilities {
-  /*
-   * The one page container, so the measure and the gutters cannot drift
-   * between routes. 24px gutters on mobile, 40px from `md` — both 8-point
-   * steps. Used by the header, the footer and every page.
-   */
-  .container-page {
-    margin-inline: auto;
-    width: 100%;
-    max-width: var(--container-content);
-    padding-inline: --spacing(6);
-  }
-
-  @media (width >= 48rem) {
-    .container-page {
-      padding-inline: --spacing(10);
-    }
-  }
-}

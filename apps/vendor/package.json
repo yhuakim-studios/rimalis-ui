@@ -17,9 +17,13 @@
     "@rimalis/api-client": "workspace:*",
     "@rimalis/types": "workspace:*",
     "@rimalis/ui": "workspace:*",
+    "jose": "^6.2.8",
+    "lucide-react": "^1.28.0",
     "next": "^16.2.12",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "server-only": "^0.0.1",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@rimalis/config": "workspace:*",

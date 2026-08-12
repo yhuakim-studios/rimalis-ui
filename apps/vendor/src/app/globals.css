@@ -1,8 +1,19 @@
 @import "tailwindcss";
 
 /*
- * Shared brand theme. Tailwind v4 is CSS-first — there is no JS preset to
- * extend, so the shared layer is a CSS file imported after Tailwind itself.
- * See packages/config/tailwind/theme.css.
+ * Shared brand theme, and every style the three apps hold in common: the four
+ * rules the design system is built on (one accent, no custom spacing scale,
+ * exactly two shadows, no dark mode), plus the base layer — canvas background,
+ * the GLOBAL `:focus-visible` ring, the reduced-motion rule — and the one
+ * `.container-page` utility.
+ *
+ * All of that moved OUT of this file when the vendor app became the second
+ * consumer. It was duplicated for exactly as long as there was one app, which is
+ * the right amount of time: a focus ring or a page measure that differs between
+ * two apps reads as a rendering bug in whichever one you noticed second, and
+ * nothing in a per-app copy stops them drifting.
+ *
+ * Anything genuinely local to one app still belongs in that app's copy of this
+ * file. Right now neither app has any, which is why both are three lines.
  */
 @import "@rimalis/config/tailwind/theme.css";
