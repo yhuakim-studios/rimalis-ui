@@ -2,6 +2,7 @@
 
 import { useId, useState } from "react";
 import { cn } from "@/components/primitives";
+import { compactNaira, pluralise } from "@/lib/format";
 
 /**
  * Daily sales for the last seven days.
@@ -55,13 +56,26 @@ export interface SalesChartDay {
 
 export interface SalesChartProps {
   days: readonly SalesChartDay[];
-  /** Formats kobo for display. Passed in so the chart holds no money logic. */
-  format: (kobo: number) => string;
   /** Y-axis ticks, low to high, in kobo. Empty hides the axis. */
   ticks: readonly number[];
 }
 
-export function SalesChart({ days, format, ticks }: SalesChartProps) {
+/**
+ * ## `compactNaira` is imported, not passed in
+ *
+ * It was a `format` prop at first, on the reasoning that the chart should hold no
+ * money logic. That does not survive the Server/Client boundary: **a function
+ * cannot cross it.** React refuses to serialize one, and the failure is not a
+ * build error — the server threw "Functions cannot be passed directly to Client
+ * Components" *during the render*, so the surrounding page streamed fine and only
+ * this card came back empty. Silent in the terminal, invisible until you read the
+ * RSC payload.
+ *
+ * `lib/format.ts` is a pure presentation module with no `server-only` marker and
+ * no Node dependencies, so importing it here is free, and the boundary now carries
+ * only plain data.
+ */
+export function SalesChart({ days, ticks }: SalesChartProps) {
   const [hovered, setHovered] = useState<string | null>(null);
   const tableId = useId();
 
@@ -86,7 +100,7 @@ export function SalesChart({ days, format, ticks }: SalesChartProps) {
             aria-hidden
           >
             {[...ticks].reverse().map((tick) => (
-              <span key={tick}>{format(tick)}</span>
+              <span key={tick}>{compactNaira(tick)}</span>
             ))}
           </div>
         )}
@@ -125,13 +139,13 @@ export function SalesChart({ days, format, ticks }: SalesChartProps) {
                   onFocus={() => setHovered(day.date)}
                   onBlur={() => setHovered(null)}
                   tabIndex={0}
-                  aria-label={`${day.weekday}: ${format(day.revenue)} from ${String(day.orders)} orders`}
+                  aria-label={`${day.weekday}: ${compactNaira(day.revenue)} from ${pluralise(day.orders, "order")}`}
                 >
                   {/* The peak gets a direct label. One label, not seven — a value
                       on every bar is chaos and goes unread. */}
                   {day.date === peakDate && day.revenue > 0 && (
                     <span className="mb-1 truncate text-center text-[10px] font-medium text-ink-muted">
-                      {format(day.revenue)}
+                      {compactNaira(day.revenue)}
                     </span>
                   )}
 
@@ -180,8 +194,8 @@ export function SalesChart({ days, format, ticks }: SalesChartProps) {
           <>
             <span className="font-medium text-ink">{active.weekday}</span>
             <span className="text-ink-muted">
-              {format(active.revenue)} · {active.units} sold · {active.orders}{" "}
-              {active.orders === 1 ? "order" : "orders"}
+              {compactNaira(active.revenue)} · {active.units} sold ·{" "}
+              {pluralise(active.orders, "order")}
             </span>
           </>
         ) : (
@@ -225,7 +239,7 @@ export function SalesChart({ days, format, ticks }: SalesChartProps) {
                 <th scope="row" className="py-1.5 text-left font-normal text-ink-muted">
                   {day.weekday}
                 </th>
-                <td className="py-1.5 text-right tabular-nums">{format(day.revenue)}</td>
+                <td className="py-1.5 text-right tabular-nums">{compactNaira(day.revenue)}</td>
                 <td className="py-1.5 text-right tabular-nums">{day.units}</td>
                 <td className="py-1.5 text-right tabular-nums">{day.orders}</td>
               </tr>
