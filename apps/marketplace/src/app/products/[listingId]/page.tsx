@@ -5,7 +5,8 @@ import { ChevronRight, Store } from "lucide-react";
 import { Container } from "@/components/layout";
 import { ErrorState } from "@/components/feedback";
 import { AttributeList, Gallery } from "@/components/catalogue";
-import { Badge, Button, ButtonLink } from "@/components/primitives";
+import { Badge, ButtonLink } from "@/components/primitives";
+import { AddToCartForm } from "@/components/cart";
 import { catalogue, publicCtx } from "@/lib/api";
 import { formatMoney } from "@/lib/money";
 import { availabilityOf, primaryImage } from "@/lib/listing";
@@ -208,19 +209,16 @@ export default async function ProductPage({
           </div>
 
           {/*
-            Phase 3 replaces this with <AddToCartForm>, which needs the cart
-            cookie and a Server Action. Disabled rather than absent so the layout
-            it will occupy is already correct — and honest about why: a button
-            that silently does nothing is worse than one that says it is coming.
+            `available` is derived here rather than inside the form, so the one
+            place that knows how `effectiveStock` and `isActive` combine stays
+            `lib/listing.ts`. The form takes a number and a ceiling; it does not
+            re-derive availability and cannot disagree with the badge above it.
           */}
-          <div className="flex flex-col gap-3">
-            <Button size="lg" fullWidth disabled>
-              {availability.kind === "out_of_stock" ? "Out of stock" : "Add to cart"}
-            </Button>
-            <p className="text-caption text-ink-muted">
-              Checkout arrives in the next phase of this build.
-            </p>
-          </div>
+          <AddToCartForm
+            listingId={listing.id}
+            available={availability.kind === "out_of_stock" ? 0 : availability.available}
+            productName={product.name}
+          />
 
           {product.description && (
             <section className="flex flex-col gap-3 border-t border-divider pt-6">
