@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import {
   auth as authApi,
+  categories as categoriesApi,
   payouts as payoutsApi,
   vendor as vendorApi,
   type RequestContext,
@@ -269,3 +270,9 @@ export function safeNext(next: string | null | undefined, fallback = "/"): strin
 export const vendor = vendorApi;
 export const payouts = payoutsApi;
 export const authClient = authApi;
+/**
+ * ⚠️ `categories.listAll()`, not `marketplace.listCategories()`. The latter omits
+ * every category no vendor currently lists in — which is exactly where a vendor
+ * looking for something new to carry needs to look. See the module comment on it.
+ */
+export const categories = categoriesApi;
