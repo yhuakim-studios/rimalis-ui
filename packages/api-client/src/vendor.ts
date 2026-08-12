@@ -1,7 +1,9 @@
 import type {
   AdvanceFulfillmentBody,
   ApplyAsVendorBody,
+  CatalogueProduct,
   CreateVendorListingBody,
+  ListCatalogueQuery,
   ListVendorListingsQuery,
   ListVendorOrdersQuery,
   PaginationMeta,
@@ -120,12 +122,42 @@ export const getListing = (ctx: RequestContext, id: string): Promise<Result<Vend
   request({ ...ctx, path: `/vendor/products/${encodeURIComponent(id)}` });
 
 /**
+ * `GET /vendor/products/catalogue` — the admin pool, to find something to list.
+ *
+ * This is how a vendor obtains the `productId` `createListing` requires. Vendors
+ * do not create products; an administrator curates the catalogue and a vendor
+ * chooses what to resell from it. There is no other vendor-readable view of the
+ * pool — `GET /admin/products` is `requireRole("ADMIN")` and returns DRAFT rows
+ * and internal stock state besides.
+ *
+ * Returns AVAILABLE products only, because `createListing` rejects anything else
+ * with 403 `PRODUCT_NOT_AVAILABLE`.
+ *
+ * ⚠️ Read `CatalogueProduct.listing` before wiring an "Add" button: it is three
+ * states, and in one of them the button performs a **restore that overwrites the
+ * old price and cap** rather than a create.
+ */
+export const browseCatalogue = (
+  ctx: RequestContext,
+  query: ListCatalogueQuery = {},
+): Promise<Result<CatalogueProduct[], PaginationMeta>> =>
+  request({ ...ctx, path: "/vendor/products/catalogue", query: { ...query } });
+
+/**
  * `POST /vendor/products` — list a pool product in this store.
  *
- * 409 `LISTING_ALREADY_EXISTS` when this vendor already carries the product,
- * including when their existing listing is soft-deleted — in which case the fix
- * is `restoreListing()`, not a retry. Surfacing "you already list this" with a
- * link to the existing row beats a raw conflict every time.
+ * Two failures worth handling apart from the generic case, and the first
+ * contradicts what this comment used to claim:
+ *
+ * - **409 `LISTING_EXISTS`** — an ACTIVE listing already exists. A *soft-deleted*
+ *   one does NOT conflict: `add()` in the API's service restores it and
+ *   overwrites its price and cap, returning 201. So `restoreListing()` is not the
+ *   fix for a 409 here — there is nothing to restore, the listing is already
+ *   live. Link the vendor to the existing row instead.
+ * - **403 `PRODUCT_NOT_AVAILABLE`** — the product went DRAFT or UNAVAILABLE since
+ *   the catalogue page was rendered. Check the `code`: a bare 403 on this
+ *   endpoint also means "your vendor account is not approved", which is a
+ *   different sentence entirely.
  */
 export const createListing = (
   ctx: RequestContext,
@@ -251,9 +283,24 @@ export const isNotApproved = (error: ApiError): boolean =>
 export const isNotAVendor = (error: ApiError): boolean =>
   error.kind === "http" && error.status === 404;
 
-/** This vendor already lists that product; offer the existing listing or a restore. */
+/**
+ * This vendor already has a LIVE listing of that product.
+ *
+ * Offer a link to the existing listing. Not a restore — a soft-deleted listing
+ * does not produce this error; the API restores it and succeeds.
+ */
 export const isDuplicateListing = (error: ApiError): boolean =>
   error.kind === "http" && error.status === 409;
+
+/**
+ * The product is no longer listable — it went DRAFT or UNAVAILABLE.
+ *
+ * Checks the `code`, not just the status: `isNotApproved` is also a 403 on these
+ * routes, and telling an approved vendor their account is not approved because a
+ * product was withdrawn sends them to support for the wrong reason.
+ */
+export const isProductNotAvailable = (error: ApiError): boolean =>
+  error.kind === "http" && error.status === 403 && error.code === "PRODUCT_NOT_AVAILABLE";
 
 /** A fulfilment transition the API refuses — stale UI, so re-read the order. */
 export const isInvalidTransition = (error: ApiError): boolean =>

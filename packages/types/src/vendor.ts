@@ -221,6 +221,63 @@ export interface CreateVendorListingBody {
   stockCap?: number;
 }
 
+// ---------------------------------------------------------------------------
+// Browsing the catalogue, to find something to list
+// ---------------------------------------------------------------------------
+
+/**
+ * A pool product as the vendor choosing what to carry sees it —
+ * `GET /vendor/products/catalogue`.
+ *
+ * The same `ListingProduct` shape the storefront uses, plus the caller's **own**
+ * listing of it. Never another vendor's: a product carried by five vendors has
+ * five `VendorProduct` rows, and four of them are competitors' prices.
+ *
+ * ## `listing` is three states, not a boolean
+ *
+ * Because `POST /vendor/products` behaves differently in each, and a UI that
+ * collapses them lies about what the button will do:
+ *
+ * | `listing`                | Meaning         | Adding it does |
+ * |--------------------------|-----------------|----------------|
+ * | `null`                   | never listed    | creates a listing |
+ * | `{ deletedAt: null }`    | in this store   | **409 `LISTING_EXISTS`** |
+ * | `{ deletedAt: <date> }`  | removed         | **restores that row, overwriting its price and cap** |
+ *
+ * The third is the one that bites. `add()` in `vendor-products.service.ts` treats
+ * a soft-deleted listing as a restore-and-overwrite rather than a create, so a
+ * vendor re-adding something they removed last month gets the old row with new
+ * terms — and any UI presenting that as "add a new listing" is describing an edit.
+ */
+export interface CatalogueProduct extends ListingProduct {
+  /** The CALLING vendor's listing, or `null` if they have never listed it. */
+  listing: {
+    /** The listing id — usable directly with `/products/[listingId]`. */
+    id: Uuid;
+    isActive: boolean;
+    /** Non-null means removed; adding this product again restores this row. */
+    deletedAt: IsoDateTime | null;
+  } | null;
+}
+
+/** `GET /vendor/products/catalogue` */
+export interface ListCatalogueQuery {
+  page?: number;
+  limit?: number;
+  /** Matches `name` or `sku`, case-insensitive. */
+  search?: string;
+  categoryId?: Uuid;
+  /**
+   * Omit products this vendor already lists.
+   *
+   * Defaults to `false` on the API, and leaving it there is usually right: a
+   * vendor who searches for something they already carry and finds nothing
+   * concludes the catalogue does not have it. Removed listings are returned
+   * either way, since re-adding one restores it.
+   */
+  excludeListed?: boolean;
+}
+
 /**
  * `PATCH /vendor/products/:id`.
  *
