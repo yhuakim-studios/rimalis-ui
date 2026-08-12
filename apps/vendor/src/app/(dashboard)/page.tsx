@@ -147,7 +147,7 @@ export default async function DashboardPage() {
         </div>
 
         <div className="px-4 py-5 md:px-6">
-          <SalesChart days={stats.week} format={compactNaira} ticks={ticks} />
+          <SalesChart days={stats.week} ticks={ticks} />
         </div>
 
         {/*
