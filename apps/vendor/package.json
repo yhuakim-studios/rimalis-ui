@@ -11,7 +11,8 @@
     "cf:clean": "chmod -R u+w .open-next 2>/dev/null; rm -rf .open-next",
     "cf:build": "pnpm cf:clean && opennextjs-cloudflare build",
     "preview": "pnpm cf:build && opennextjs-cloudflare preview",
-    "cf:deploy": "pnpm cf:build && wrangler deploy"
+    "cf:deploy": "pnpm cf:build && wrangler deploy",
+    "test": "vitest run"
   },
   "dependencies": {
     "@rimalis/api-client": "workspace:*",
@@ -34,6 +35,7 @@
     "@types/react-dom": "^19.2.0",
     "tailwindcss": "^4.3.3",
     "typescript": "^5.9.3",
-    "wrangler": "^4.118.0"
+    "wrangler": "^4.118.0",
+    "vitest": "^4.1.10"
   }
 }

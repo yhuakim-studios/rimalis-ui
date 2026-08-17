@@ -1,4 +1,11 @@
-import { LayoutDashboard, Package, ReceiptText, Settings, Wallet } from "lucide-react";
+import {
+  LayoutDashboard,
+  Package,
+  ReceiptText,
+  Settings,
+  Users,
+  Wallet,
+} from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 /**
@@ -25,8 +32,19 @@ import type { LucideIcon } from "lucide-react";
  * importantly — the Paystack payout details, without which every checkout
  * containing this vendor's items fails.
  *
- * Kept to five. The design's bottom bar fits five 44px targets across a 360px
- * viewport with room to breathe; six is where labels start truncating.
+ * ## Referrals is the sixth, and only on desktop
+ *
+ * `/vendor/referrals` is real, and a commission ladder nobody can find is a
+ * commission ladder nobody recruits for. But the note above still holds: the
+ * bottom bar fits five 44px targets across a 360px viewport, and six is where
+ * labels start truncating.
+ *
+ * So the two navs diverge, which is why there are two lists below. The side nav
+ * takes all six — it is a vertical column with room to spare. The bottom bar
+ * drops **Settings**, because it is the one destination already reachable from the
+ * header on every screen, so removing it costs a mobile vendor nothing. Dropping
+ * Payouts or Products instead would strand a destination with no other route to
+ * it.
  */
 
 export interface NavItem {
@@ -44,13 +62,26 @@ export interface NavItem {
   exact?: boolean;
 }
 
+/** The desktop `SideNav`. All six destinations. */
 export const NAV_ITEMS: readonly NavItem[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { href: "/orders", label: "Orders", icon: ReceiptText },
   { href: "/products", label: "Products", icon: Package },
   { href: "/payouts", label: "Payouts", icon: Wallet },
+  { href: "/referrals", label: "Referrals", icon: Users },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
+
+/**
+ * The mobile `BottomNav`. Five, with Settings dropped — see the note above.
+ *
+ * Derived from `NAV_ITEMS` rather than written out again, so a destination added
+ * to one list cannot silently miss the other. The filter names what is excluded,
+ * which is the part worth reading in a diff.
+ */
+export const MOBILE_NAV_ITEMS: readonly NavItem[] = NAV_ITEMS.filter(
+  (item) => item.href !== "/settings",
+);
 
 /** Whether `pathname` is inside `item`. See the note on `exact`. */
 export function isActive(item: NavItem, pathname: string): boolean {

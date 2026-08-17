@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/components/primitives";
-import { NAV_ITEMS, isActive } from "./nav-items";
+import { MOBILE_NAV_ITEMS, isActive } from "./nav-items";
 
 /**
  * The mobile bottom bar. Hidden from `md` up, where `SideNav` takes over.
@@ -17,6 +17,11 @@ import { NAV_ITEMS, isActive } from "./nav-items";
  *
  * The cost is contained: the nav is a fixed list of five links and no data, so
  * this ships a few hundred bytes and no API types.
+ *
+ * ## Five links, and not the same five as the side nav
+ *
+ * `MOBILE_NAV_ITEMS` drops Settings, which the header already offers on every
+ * screen, to make room for Referrals without a sixth target. See `nav-items.ts`.
  *
  * ## `prefetch={false}`, deliberately
  *
@@ -45,7 +50,7 @@ export function BottomNav() {
       )}
     >
       <ul className="flex items-stretch justify-around">
-        {NAV_ITEMS.map((item) => {
+        {MOBILE_NAV_ITEMS.map((item) => {
           const active = isActive(item, pathname);
           const Icon = item.icon;
 

@@ -2,6 +2,10 @@ import type {
   AdvanceFulfillmentBody,
   ApplyAsVendorBody,
   CatalogueProduct,
+  CommissionTier,
+  ListReferralsQuery,
+  ReferralRecruit,
+  ReferralSummary,
   InitiateStockPurchaseBody,
   StockPurchaseInit,
   StockPurchase,
@@ -369,3 +373,44 @@ export const isProductNotAvailable = (error: ApiError): boolean =>
 /** A fulfilment transition the API refuses — stale UI, so re-read the order. */
 export const isInvalidTransition = (error: ApiError): boolean =>
   error.kind === "http" && error.status === 400;
+
+// ---------------------------------------------------------------------------
+// Referrals and the commission ladder
+// ---------------------------------------------------------------------------
+
+/**
+ * `GET /vendor/referrals/me` — code, qualified count, and tier standing.
+ *
+ * The one call that can answer "what commission am I actually paying?".
+ * `VendorProfile.commissionRateOverride` cannot: it is null for most vendors,
+ * and null means "the ladder decides", not "the platform default". Read
+ * `currentRate` here instead.
+ */
+export const referralSummary = (
+  ctx: RequestContext,
+): Promise<Result<ReferralSummary>> =>
+  request({ ...ctx, path: "/vendor/referrals/me" });
+
+/**
+ * `GET /vendor/referrals` — the vendors this vendor recruited.
+ *
+ * Qualified first, then newest. `qualified: false` narrows to the pipeline —
+ * recruits who applied but have not yet been approved or bought stock — which is
+ * the list a vendor wants when a referral "hasn't shown up".
+ */
+export const listReferrals = (
+  ctx: RequestContext,
+  query: ListReferralsQuery = {},
+): Promise<Result<ReferralRecruit[], PaginationMeta>> =>
+  request({ ...ctx, path: "/vendor/referrals", query: { ...query } });
+
+/**
+ * `GET /commission-tiers` — the whole ladder, in display order.
+ *
+ * Mounted behind `authenticate` only, so this is readable by a PENDING vendor and
+ * by a shopper who has not applied. Guaranteed monotonic by the API.
+ */
+export const commissionTiers = (
+  ctx: RequestContext,
+): Promise<Result<CommissionTier[]>> =>
+  request({ ...ctx, path: "/commission-tiers" });

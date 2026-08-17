@@ -80,13 +80,40 @@ export interface VendorProfile {
   paystackSettlementBank: string | null;
   paystackAccountNumber: string | null;
   /**
-   * A per-vendor override of the platform rate, as a fraction — `0.08` is 8%.
+   * An admin-negotiated override of this vendor's commission, as a fraction —
+   * `0.08` is 8%.
    *
-   * `null` means the platform default applies (`PLATFORM_COMMISSION_RATE`, 10%).
+   * ⚠️ **`null` is the normal case and does NOT mean "the platform default".**
+   * When this is null the rate comes from the referral commission ladder: the
+   * best `CommissionTier` rung the vendor's qualified referral count has earned.
+   * Rendering "the default 10%" whenever this is null is wrong for every vendor
+   * who has recruited anyone.
+   *
+   * To show a vendor the rate they are actually charged, read `currentRate` from
+   * `GET /vendor/referrals/me` — the API resolves the precedence there and this
+   * field cannot answer the question on its own.
+   *
    * A genuine `number` rather than `Money`: it is a rate, not an amount, and the
    * column is a `Float`. Only an admin can change it.
    */
-  commissionRate: number | null;
+  commissionRateOverride: number | null;
+  /**
+   * This vendor's own code, for recruiting other vendors — `RIM-` plus six
+   * Crockford base32 characters.
+   */
+  referralCode: string;
+  /** The vendor who recruited this one, if any. */
+  referredByVendorId: Uuid | null;
+  /**
+   * Recruits who are APPROVED **and** have paid for stock. What the ladder is
+   * scored on; a signup alone counts for nothing.
+   */
+  qualifiedReferralCount: number;
+  /**
+   * When THIS vendor started counting toward their own referrer's tier. Null if
+   * they were not recruited, or have not yet cleared both gates.
+   */
+  referralQualifiedAt: IsoDateTime | null;
   approvedAt: IsoDateTime | null;
   approvedById: Uuid | null;
   createdAt: IsoDateTime;
@@ -490,4 +517,99 @@ export interface ListPayoutsQuery {
 export interface PayoutSummary {
   lifetimeTotal: Money;
   currency: string;
+}
+
+// ---------------------------------------------------------------------------
+// Referrals and the commission ladder
+// ---------------------------------------------------------------------------
+
+/**
+ * One rung of the commission ladder, from `GET /commission-tiers`.
+ *
+ * Readable by any authenticated user, not just approved vendors — a shopper
+ * weighing up whether to apply needs to see what recruiting is worth.
+ *
+ * The ladder is guaranteed **monotonic** by the API's write path: a rung
+ * requiring more referrals never charges a higher rate, and no two active rungs
+ * share a `minReferrals`. A UI may therefore sort by either field and get the
+ * same order, and may present "next rung" as unambiguous.
+ */
+export interface CommissionTier {
+  id: Uuid;
+  /** Display order, and the handle an admin edits against. */
+  level: number;
+  name: string;
+  /** Qualified referrals needed to reach this rung. */
+  minReferrals: number;
+  /**
+   * Fraction of the vendor's **margin** (retail − cost), not of revenue, and not
+   * a percentage: `0.09` is 9%.
+   */
+  rate: number;
+  /** Retired rungs are still returned. Skip them when resolving a rate. */
+  isActive: boolean;
+  createdAt: IsoDateTime;
+  updatedAt: IsoDateTime;
+}
+
+/**
+ * `GET /vendor/referrals/me` — everything the referral screen needs in one call.
+ *
+ * ## `currentRate` and `currentTier` can disagree, on purpose
+ *
+ * `currentRate` is what this vendor is actually charged. `currentTier` is where
+ * they stand on the ladder. An admin override beats the ladder, so when
+ * `rateIsOverridden` is true the two describe different things and both are
+ * worth showing — suppressing the tier would hide a vendor's referral progress,
+ * and suppressing the rate would quote them a number they are not paying.
+ *
+ * ## What counts, and what a UI must say
+ *
+ * `qualifiedReferralCount` only counts recruits who are approved **and** have
+ * bought stock. `pendingReferralCount` is the rest of the pipeline. A screen that
+ * shows only the qualified figure reads as though a recruit's signup was lost.
+ *
+ * Credit is never withdrawn once earned: if a recruit is later suspended, the
+ * count and the tier stay. Say so somewhere on the screen — an unexplained tier
+ * that never drops is fine, but a vendor who assumes it *should* have dropped
+ * will not trust the number.
+ */
+export interface ReferralSummary {
+  referralCode: string;
+  qualifiedReferralCount: number;
+  /** Applied, not yet qualified. Excludes rejected applications. */
+  pendingReferralCount: number;
+  /** The rate actually charged right now, override included. A fraction. */
+  currentRate: number;
+  rateIsOverridden: boolean;
+  currentTier: CommissionTier | null;
+  /** Null when the vendor is on the top rung. */
+  nextTier: CommissionTier | null;
+  /** Qualified referrals still needed for `nextTier`. Null with no next rung. */
+  referralsNeeded: number | null;
+}
+
+/**
+ * One row of `GET /vendor/referrals` — a vendor this vendor recruited.
+ *
+ * Deliberately thin. A referrer sees whether their recruit is live and whether
+ * they have qualified, and nothing about that recruit's own commission terms,
+ * payout details or referrals. Do not ask the API to widen it.
+ */
+export interface ReferralRecruit {
+  id: Uuid;
+  storeName: string;
+  slug: string;
+  status: VendorStatus;
+  /** Null means one of the two gates is still outstanding. */
+  referralQualifiedAt: IsoDateTime | null;
+  /** When they applied. */
+  createdAt: IsoDateTime;
+}
+
+/** `GET /vendor/referrals`. Omit `qualified` for both kinds. */
+export interface ListReferralsQuery {
+  page?: number;
+  limit?: number;
+  qualified?: boolean;
 }
