@@ -1,7 +1,14 @@
 import "server-only";
 
-import type { VendorOrder } from "@rimalis/types";
-import { ZERO, parseMoney, sum, type Minor } from "./money";
+import type { CommissionTier, VendorOrder } from "@rimalis/types";
+import {
+  ZERO,
+  applyRate,
+  difference,
+  parseMoney,
+  sum,
+  type Minor,
+} from "./money";
 
 /**
  * The dashboard's numbers, derived from the order list.
@@ -122,7 +129,15 @@ const LAGOS_DAY = new Intl.DateTimeFormat("en-CA", {
 
 const dayKey = (date: Date): string => LAGOS_DAY.format(date);
 
-const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const WEEKDAYS = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+];
 
 /**
  * The weekday of a `YYYY-MM-DD` key.
@@ -172,7 +187,10 @@ function totalsOf(order: VendorOrder): { revenue: Minor; units: number } {
  * @param orders one page of `GET /vendor/orders`, any status, newest first
  * @param now injectable for tests; defaults to the request's clock
  */
-export function deriveStats(orders: readonly VendorOrder[], now = new Date()): DashboardStats {
+export function deriveStats(
+  orders: readonly VendorOrder[],
+  now = new Date(),
+): DashboardStats {
   const today = dayKey(now);
 
   // Fourteen buckets: seven for the chart and seven behind it for the comparison.
@@ -190,7 +208,9 @@ export function deriveStats(orders: readonly VendorOrder[], now = new Date()): D
     // it fell outside the chart window would hide the worst case.
     if (PAID_STATUSES.has(order.status)) {
       outstandingLines += order.items.filter(
-        (item) => item.fulfillmentStatus === "PENDING" || item.fulfillmentStatus === "PROCESSING",
+        (item) =>
+          item.fulfillmentStatus === "PENDING" ||
+          item.fulfillmentStatus === "PROCESSING",
       ).length;
     }
 
@@ -238,8 +258,194 @@ export function deriveStats(orders: readonly VendorOrder[], now = new Date()): D
     weekChangePercent:
       previousWeekRevenue === 0
         ? null
-        : Math.round(((weekRevenue - previousWeekRevenue) / previousWeekRevenue) * 100),
+        : Math.round(
+            ((weekRevenue - previousWeekRevenue) / previousWeekRevenue) * 100,
+          ),
     outstandingLines,
+    truncated: orders.length >= SAMPLE_SIZE,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// The referral tier calculator
+// ---------------------------------------------------------------------------
+
+/**
+ * How far back the tier projection looks. Thirty days, not seven.
+ *
+ * A week is too short a base for "what is the next tier worth to me?" — one good
+ * Saturday doubles the answer. Thirty days is long enough to mean something and
+ * short enough that `SAMPLE_SIZE` usually covers it. When it does not,
+ * `truncated` says so, exactly as on the dashboard.
+ */
+export const TIER_WINDOW_DAYS = 30;
+
+/** One rung, priced against this vendor's own recent trading. */
+export interface TierProjectionRow {
+  level: number;
+  name: string;
+  /** Fraction, not a percentage. */
+  rate: number;
+  minReferrals: number;
+  /**
+   * What the window's trading would have left this vendor at this rate:
+   * `(sales − cost) − commission`, where commission is charged on margin.
+   */
+  kept: Minor;
+  /**
+   * `kept` at this rung minus `kept` at the current rate. **Signed** — rungs the
+   * vendor has already passed carry worse rates and show a loss, which is the
+   * point of listing them.
+   */
+  delta: Minor;
+  /** Qualified referrals still needed. `0` on a rung already reached. */
+  referralsNeeded: number;
+  reached: boolean;
+  /** The rung the vendor stands on today. */
+  isCurrent: boolean;
+}
+
+export interface TierProjection {
+  windowDays: number;
+  /** Whether there is any paid trading in the window at all. */
+  hasSales: boolean;
+  /** Σ `items[].totalPrice` — what this vendor's goods sold for. */
+  sales: Minor;
+  /** Σ `items[].totalCost` — what they paid the platform for those units. */
+  cost: Minor;
+  /**
+   * Σ `items[].marginAmount` — the base commission is charged on.
+   *
+   * The API's own per-line figure, **floored at zero**, rather than
+   * `sales − cost` recomputed here. On a line priced below cost the two differ,
+   * and the floored one is the number commission was actually taken on.
+   */
+  margin: Minor;
+  /** Paid orders counted. */
+  orders: number;
+  /**
+   * What this vendor **actually** kept: Σ `vendorPayout` − Σ `totalCost`, read
+   * straight off the snapshots.
+   *
+   * This is a fact, not a projection, and it is deliberately NOT derived from a
+   * rate: historical lines carry whatever rate was in force when they were bought,
+   * so a vendor who crossed a tier mid-window has a blend that no single rate
+   * reproduces. It therefore may not equal the `kept` of the current rung, and a
+   * UI must not present the two as the same number.
+   */
+  actualKept: Minor;
+  /** The rate being charged today, from `GET /vendor/referrals/me`. */
+  currentRate: number;
+  /** `kept` recomputed at `currentRate` — the baseline every `delta` is against. */
+  keptAtCurrentRate: Minor;
+  rows: TierProjectionRow[];
+  /**
+   * The sample filled up, so the oldest days in the window may be incomplete and
+   * every figure here is a floor rather than a total. **The UI must say so.**
+   * Quietly under-reporting a vendor's own earnings destroys trust in the screen.
+   */
+  truncated: boolean;
+}
+
+/**
+ * Prices each rung of the ladder against this vendor's own recent trading.
+ *
+ * ## Commission comes out of the margin, and that is the whole subtlety
+ *
+ * A vendor's profit on a line is `vendorPayout − totalCost`, and commission is
+ * charged on `retail − cost` rather than on the sale price — see
+ * `splitMarginCommission` in the API's `shared/utils/money.ts`, which this
+ * mirrors. Applying a rate to `sales` instead of to `margin` overstates the cost
+ * of every tier by roughly the cost-of-goods ratio, which on this platform is
+ * most of the sale. **If these two formulas ever drift apart, this screen is
+ * lying to a vendor about their own money**, so each should point at the other.
+ *
+ * Pure and synchronous; the fetch belongs to the page. `now` is injectable for
+ * tests.
+ *
+ * @param orders one page of `GET /vendor/orders`, any status, newest first
+ * @param tiers  the ladder from `GET /commission-tiers`, any order
+ * @param currentRate the rate actually charged today — `ReferralSummary.currentRate`,
+ *   NOT `commissionRateOverride`, which is null for most vendors
+ * @param qualifiedCount `ReferralSummary.qualifiedReferralCount`
+ */
+export function deriveTierProjection(
+  orders: readonly VendorOrder[],
+  tiers: readonly CommissionTier[],
+  currentRate: number,
+  qualifiedCount: number,
+  now = new Date(),
+): TierProjection {
+  // Inclusive lower bound of the window, as a Lagos day key. String comparison is
+  // safe because `YYYY-MM-DD` sorts lexically — the reason dayKey uses `en-CA`.
+  const from = shiftDay(now, -(TIER_WINDOW_DAYS - 1));
+
+  let sales = ZERO;
+  let cost = ZERO;
+  let margin = ZERO;
+  let payout = ZERO;
+  let orderCount = 0;
+
+  for (const order of orders) {
+    if (!PAID_STATUSES.has(order.status)) continue;
+    if (dayKey(new Date(order.createdAt)) < from) continue;
+
+    orderCount += 1;
+    for (const item of order.items) {
+      sales = sum(sales, parseMoney(item.totalPrice));
+      cost = sum(cost, parseMoney(item.totalCost));
+      margin = sum(margin, parseMoney(item.marginAmount));
+      payout = sum(payout, parseMoney(item.vendorPayout));
+    }
+  }
+
+  // Gross profit before commission. Not `margin`: on a line sold below cost the
+  // API floors margin at zero, and the loss on that line is real even though no
+  // commission was charged on it.
+  const grossProfit = difference(sales, cost);
+  const keptAt = (rate: number): Minor =>
+    difference(grossProfit, applyRate(margin, rate));
+
+  const keptAtCurrentRate = keptAt(currentRate);
+
+  const active = [...tiers]
+    .filter((tier) => tier.isActive)
+    .sort((a, b) => a.minReferrals - b.minReferrals);
+
+  // The rung the vendor stands on: the highest threshold they have met. Derived
+  // from the count rather than matched on rate, because an override means the
+  // rate they pay may match no rung at all.
+  const reachedRungs = active.filter(
+    (tier) => qualifiedCount >= tier.minReferrals,
+  );
+  const currentRung = reachedRungs[reachedRungs.length - 1];
+
+  const rows: TierProjectionRow[] = active.map((tier) => {
+    const kept = keptAt(tier.rate);
+    return {
+      level: tier.level,
+      name: tier.name,
+      rate: tier.rate,
+      minReferrals: tier.minReferrals,
+      kept,
+      delta: difference(kept, keptAtCurrentRate),
+      referralsNeeded: Math.max(0, tier.minReferrals - qualifiedCount),
+      reached: qualifiedCount >= tier.minReferrals,
+      isCurrent: tier.id === currentRung?.id,
+    };
+  });
+
+  return {
+    windowDays: TIER_WINDOW_DAYS,
+    hasSales: orderCount > 0,
+    sales,
+    cost,
+    margin,
+    orders: orderCount,
+    actualKept: difference(payout, cost),
+    currentRate,
+    keptAtCurrentRate,
+    rows,
     truncated: orders.length >= SAMPLE_SIZE,
   };
 }
