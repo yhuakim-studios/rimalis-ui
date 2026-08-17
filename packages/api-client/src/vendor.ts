@@ -2,7 +2,14 @@ import type {
   AdvanceFulfillmentBody,
   ApplyAsVendorBody,
   CatalogueProduct,
-  CreateVendorListingBody,
+  CommissionTier,
+  ListReferralsQuery,
+  ReferralRecruit,
+  ReferralSummary,
+  InitiateStockPurchaseBody,
+  StockPurchaseInit,
+  StockPurchase,
+  ListStockPurchasesQuery,
   ListCatalogueQuery,
   ListVendorListingsQuery,
   ListVendorOrdersQuery,
@@ -124,18 +131,22 @@ export const getListing = (ctx: RequestContext, id: string): Promise<Result<Vend
 /**
  * `GET /vendor/products/catalogue` — the admin pool, to find something to list.
  *
- * This is how a vendor obtains the `productId` `createListing` requires. Vendors
- * do not create products; an administrator curates the catalogue and a vendor
- * chooses what to resell from it. There is no other vendor-readable view of the
- * pool — `GET /admin/products` is `requireRole("ADMIN")` and returns DRAFT rows
- * and internal stock state besides.
+ * This is how a vendor obtains the `productId` `initiateStockPurchase` requires.
+ * Vendors do not create products; an administrator curates the catalogue and a
+ * vendor buys from it. There is no other vendor-readable view of the pool —
+ * `GET /admin/products` is `requireRole("ADMIN")` and returns DRAFT rows and
+ * internal stock state besides.
  *
- * Returns AVAILABLE products only, because `createListing` rejects anything else
- * with 403 `PRODUCT_NOT_AVAILABLE`.
+ * Returns AVAILABLE products only, because `initiateStockPurchase` rejects
+ * anything else with 403 `PRODUCT_NOT_AVAILABLE`.
  *
- * ⚠️ Read `CatalogueProduct.listing` before wiring an "Add" button: it is three
- * states, and in one of them the button performs a **restore that overwrites the
- * old price and cap** rather than a create.
+ * Rows carry both `costPrice` (what the vendor will pay per unit) and
+ * `retailPrice` (what a shopper pays), so a buy form can show the margin before
+ * the vendor commits. `stock` is the pool ceiling on how many they can buy.
+ *
+ * ⚠️ Read `CatalogueProduct.listing.ownedStock` before wiring the button:
+ * `0` means the vendor carries this product and has SOLD OUT, which is not the
+ * same as never having carried it.
  */
 export const browseCatalogue = (
   ctx: RequestContext,
@@ -144,34 +155,65 @@ export const browseCatalogue = (
   request({ ...ctx, path: "/vendor/products/catalogue", query: { ...query } });
 
 /**
- * `POST /vendor/products` — list a pool product in this store.
+ * `POST /vendor/stock-purchases` — buy inventory. This is how a listing is made.
  *
- * Two failures worth handling apart from the generic case, and the first
- * contradicts what this comment used to claim:
+ * Replaces `createListing`, which no longer exists. A vendor pays
+ * `quantity × costPrice` to the platform and the listing is created by the
+ * Paystack webhook once the money lands — so **this call does not create a
+ * listing, it starts a payment.**
  *
- * - **409 `LISTING_EXISTS`** — an ACTIVE listing already exists. A *soft-deleted*
- *   one does NOT conflict: `add()` in the API's service restores it and
- *   overwrites its price and cap, returning 201. So `restoreListing()` is not the
- *   fix for a 409 here — there is nothing to restore, the listing is already
- *   live. Link the vendor to the existing row instead.
- * - **403 `PRODUCT_NOT_AVAILABLE`** — the product went DRAFT or UNAVAILABLE since
- *   the catalogue page was rendered. Check the `code`: a bare 403 on this
- *   endpoint also means "your vendor account is not approved", which is a
- *   different sentence entirely.
+ * ## What the caller must do with the result
+ *
+ * Redirect to `authorizationUrl`. Then poll `getStockPurchase` on the return
+ * page until the status leaves `PENDING`.
+ *
+ * ⚠️ **Never retry this call to "check" a purchase.** Each call reserves a fresh
+ * batch out of the pool and opens a second Paystack transaction; there is no
+ * idempotency key on this endpoint. A vendor who ends up paying twice has bought
+ * twice, and the stock is really theirs.
+ *
+ * Failures worth handling apart from the generic case:
+ *
+ * - **409 `INSUFFICIENT_POOL_STOCK`** — the platform does not have that many
+ *   units left, or another vendor took them while this one was deciding. Show
+ *   the current pool figure and let them buy fewer.
+ * - **409 `PRODUCT_COST_NOT_SET`** — an admin has not priced this product for
+ *   vendors. Nothing the vendor can do; it is not their error to fix.
+ * - **403 `PRODUCT_NOT_AVAILABLE`** — the product went DRAFT or UNAVAILABLE
+ *   since the catalogue page rendered. Check the `code`: a bare 403 here also
+ *   means "your vendor account is not approved", a different sentence entirely.
  */
-export const createListing = (
+export const initiateStockPurchase = (
   ctx: RequestContext,
-  body: CreateVendorListingBody,
-): Promise<Result<VendorListing>> =>
-  request({ ...ctx, method: "POST", path: "/vendor/products", body });
+  body: InitiateStockPurchaseBody,
+): Promise<Result<StockPurchaseInit>> =>
+  request({ ...ctx, method: "POST", path: "/vendor/stock-purchases", body });
+
+/** `GET /vendor/stock-purchases` — this vendor's purchases, newest first. */
+export const listStockPurchases = (
+  ctx: RequestContext,
+  query: ListStockPurchasesQuery = {},
+): Promise<Result<StockPurchase[], PaginationMeta>> =>
+  request({ ...ctx, path: "/vendor/stock-purchases", query: { ...query } });
 
 /**
- * `PATCH /vendor/products/:id` — price, cap, or visibility.
+ * `GET /vendor/stock-purchases/:id` — poll this after returning from Paystack.
  *
- * ⚠️ Read `UpdateVendorListingBody` before building the form. `vendorPrice:
- * null` **clears the override**; omitting the key leaves it alone. A controlled
- * input that serialises an empty field as `null` will wipe prices its user never
- * touched.
+ * `PENDING` is not a failure and not a timeout: it means the webhook has not
+ * landed yet. Keep waiting. Offering a "try again" button here is how a vendor
+ * ends up buying the same stock twice.
+ */
+export const getStockPurchase = (
+  ctx: RequestContext,
+  id: string,
+): Promise<Result<StockPurchase>> =>
+  request({ ...ctx, path: `/vendor/stock-purchases/${encodeURIComponent(id)}` });
+
+/**
+ * `PATCH /vendor/products/:id` — visibility only.
+ *
+ * Price and stock are no longer editable: the admin sets one retail price, and
+ * a vendor's ceiling is what they bought. To sell more, buy more.
  */
 export const updateListing = (
   ctx: RequestContext,
@@ -284,13 +326,39 @@ export const isNotAVendor = (error: ApiError): boolean =>
   error.kind === "http" && error.status === 404;
 
 /**
- * This vendor already has a LIVE listing of that product.
+ * A vendor application already exists for this user.
  *
- * Offer a link to the existing listing. Not a restore — a soft-deleted listing
- * does not produce this error; the API restores it and succeeds.
+ * `POST /vendors/apply` 409s whether the existing record is PENDING, APPROVED,
+ * REJECTED or SUSPENDED — so this is "you already have a record", not "you were
+ * rejected". Send them to the status gate, which knows which; re-applying is not
+ * the fix for any of the four.
  */
-export const isDuplicateListing = (error: ApiError): boolean =>
+export const isVendorProfileExists = (error: ApiError): boolean =>
   error.kind === "http" && error.status === 409;
+
+/**
+ * The platform does not have enough units left for this purchase.
+ *
+ * Either the vendor asked for more than the pool holds, or another vendor took
+ * them while this one was on the form. Re-read the catalogue row and show the
+ * current ceiling rather than repeating the request.
+ */
+export const isInsufficientPoolStock = (error: ApiError): boolean =>
+  error.kind === "http" &&
+  error.status === 409 &&
+  error.code === "INSUFFICIENT_POOL_STOCK";
+
+/**
+ * No cost price has been set for this product yet.
+ *
+ * An administrator has not finished pricing it — most likely a row the
+ * wholesale migration backfilled. Nothing the vendor can do about it, so say so
+ * rather than inviting a retry.
+ */
+export const isProductCostNotSet = (error: ApiError): boolean =>
+  error.kind === "http" &&
+  error.status === 409 &&
+  error.code === "PRODUCT_COST_NOT_SET";
 
 /**
  * The product is no longer listable — it went DRAFT or UNAVAILABLE.
@@ -305,3 +373,44 @@ export const isProductNotAvailable = (error: ApiError): boolean =>
 /** A fulfilment transition the API refuses — stale UI, so re-read the order. */
 export const isInvalidTransition = (error: ApiError): boolean =>
   error.kind === "http" && error.status === 400;
+
+// ---------------------------------------------------------------------------
+// Referrals and the commission ladder
+// ---------------------------------------------------------------------------
+
+/**
+ * `GET /vendor/referrals/me` — code, qualified count, and tier standing.
+ *
+ * The one call that can answer "what commission am I actually paying?".
+ * `VendorProfile.commissionRateOverride` cannot: it is null for most vendors,
+ * and null means "the ladder decides", not "the platform default". Read
+ * `currentRate` here instead.
+ */
+export const referralSummary = (
+  ctx: RequestContext,
+): Promise<Result<ReferralSummary>> =>
+  request({ ...ctx, path: "/vendor/referrals/me" });
+
+/**
+ * `GET /vendor/referrals` — the vendors this vendor recruited.
+ *
+ * Qualified first, then newest. `qualified: false` narrows to the pipeline —
+ * recruits who applied but have not yet been approved or bought stock — which is
+ * the list a vendor wants when a referral "hasn't shown up".
+ */
+export const listReferrals = (
+  ctx: RequestContext,
+  query: ListReferralsQuery = {},
+): Promise<Result<ReferralRecruit[], PaginationMeta>> =>
+  request({ ...ctx, path: "/vendor/referrals", query: { ...query } });
+
+/**
+ * `GET /commission-tiers` — the whole ladder, in display order.
+ *
+ * Mounted behind `authenticate` only, so this is readable by a PENDING vendor and
+ * by a shopper who has not applied. Guaranteed monotonic by the API.
+ */
+export const commissionTiers = (
+  ctx: RequestContext,
+): Promise<Result<CommissionTier[]>> =>
+  request({ ...ctx, path: "/commission-tiers" });

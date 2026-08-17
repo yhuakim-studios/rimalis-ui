@@ -78,9 +78,33 @@ export interface OrderItem {
   fulfillmentStatus: FulfillmentStatus;
   unitPrice: Money;
   totalPrice: Money;
+  /**
+   * What the VENDOR paid the platform per unit, frozen at order time.
+   *
+   * A vendor's real profit on a line is `vendorPayout − totalCost`, NOT
+   * `vendorPayout` — they had already spent `totalCost` to hold the stock.
+   * Any earnings figure that omits it overstates what the vendor made.
+   */
+  unitCost: Money;
+  totalCost: Money;
+  /** `totalPrice − totalCost`, floored at 0. What commission is charged on. */
+  marginAmount: Money;
   /** A rate, e.g. `0.1`. A genuine number — see the money rule in `common.ts`. */
   commissionRate: number;
+  /**
+   * `marginAmount × commissionRate` — charged on the vendor's MARGIN, not on
+   * revenue.
+   *
+   * ⚠️ On items created before the wholesale migration this will not reconcile
+   * with `marginAmount`: those lines were charged on the full sale price under
+   * the old rules, and `marginAmount` on them is a backfilled estimate.
+   */
   commissionAmount: Money;
+  /**
+   * `totalPrice − commissionAmount`. What reaches the vendor's subaccount, and
+   * the figure the Paystack split is built from — so
+   * `commissionAmount + vendorPayout === totalPrice` exactly, always.
+   */
   vendorPayout: Money;
   /**
    * ⚠️ **Render this, not a live product name.**

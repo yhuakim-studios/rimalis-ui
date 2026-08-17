@@ -1,41 +1,36 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 import { shopperMessage } from "@rimalis/api-client";
-import type { CreateVendorListingBody, UpdateVendorListingBody } from "@rimalis/types";
+import type { UpdateVendorListingBody } from "@rimalis/types";
 import { ctxFor, requireApprovedVendor, vendor } from "./auth";
 
 /**
- * Listing writes: price, stock cap, visibility, removal and restore.
+ * Listing writes: buying stock, visibility, removal and restore.
  *
- * ## The `null` trap, which is the whole reason this file is careful
+ * ## Buying stock is a redirect, not a mutation
  *
- * `PATCH /vendor/products/:id` treats the three fields differently depending on
- * whether they are **absent** or **`null`**:
+ * `buyStock` does not create anything. It opens a Paystack payment and sends the
+ * vendor away; the listing is created by the webhook when the money lands. So the
+ * success path of that action is a `redirect()`, and the only states it can report
+ * back are failures to even start.
  *
- *   omitted        leave it alone
- *   null           CLEAR the override — fall back to the catalogue price / no cap
- *   a number       set it
+ * ## The `null` trap is gone, along with the fields that caused it
  *
- * An HTML form submits an untouched empty input as `""`, and the obvious
- * `Number(value) || null` turns that into `null` — which **wipes a price the vendor
- * never touched**. That is a silent repricing of their own catalogue, triggered by
- * saving an unrelated field.
+ * This file used to be elaborate because `PATCH /vendor/products/:id` distinguished
+ * absent from `null` on `vendorPrice` and `stockCap`, and an untouched empty input
+ * serialised as `null` would silently wipe a price the vendor had set. Both columns
+ * are gone — the admin sets one retail price, and a vendor's ceiling is the stock
+ * they bought — so the update body is now `isActive` alone and `readNumeric`,
+ * `priceField` and `capField` went with them.
  *
- * So the parsing below is explicit about the three cases and never infers. An empty
- * string is only allowed to mean `null` when the form says the vendor deliberately
- * cleared it, which is what the `clearPrice` / `clearCap` checkboxes are for.
+ * ## Quantity goes out as a number
  *
- * ## Prices arrive in naira and go out as numbers
- *
- * `CreateVendorListingBody.vendorPrice` and the update body take a **number in
- * naira** — not kobo, and not a decimal string. That differs from every `Money` on
- * a response, which is a string. The conversion happens here, once.
- *
- * This is also the one place in the app that sends money *to* the API, so the rule in
- * `lib/money.ts` about display-only arithmetic does not apply — but the value must be
- * exactly what the vendor typed, never something computed from a total.
+ * The one value this app still sends to the API. It must be exactly what the vendor
+ * typed — never derived from a total — because it is multiplied by the cost price to
+ * decide what they are charged.
  */
 
 export interface ListingState {
@@ -45,117 +40,77 @@ export interface ListingState {
 }
 
 /**
- * A price in naira, as typed.
+ * How many units to buy.
  *
- * `.multipleOf(0.01)` rather than an integer check: the column is `Decimal(12,2)`, so
- * kobo are legal and ₦1,999.99 must be accepted. Three decimals are not.
+ * Capped at 1000 to match the API, which caps it as a blast radius rather than a
+ * business rule: a fat-fingered 100000 on a ₦300,000 product is a ₦30bn Paystack
+ * transaction, and buying twice is a far cheaper failure than that.
  */
-const priceField = z
+const quantityField = z
   .number()
-  .positive("Enter a price above zero.")
-  .max(99_999_999, "That price is too large.")
-  .multipleOf(0.01, "Use at most two decimal places.");
-
-const capField = z
-  .number()
-  .int("Use a whole number of units.")
-  .min(0, "A cap cannot be negative.")
-  .max(1_000_000, "That cap is too large.");
-
-/** Turns a Zod failure into per-field copy. */
-function fieldErrorsOf(error: z.ZodError): Record<string, string> {
-  const errors: Record<string, string> = {};
-  for (const issue of error.issues) {
-    const key = issue.path[0];
-    if (typeof key === "string" && errors[key] === undefined) errors[key] = issue.message;
-  }
-  return errors;
-}
+  .int("Buy whole units.")
+  .min(1, "Buy at least one unit.")
+  .max(1000, "Buy at most 1000 units at a time.");
 
 /**
- * Reads one numeric field into the three-way shape the API expects.
+ * Start a stock purchase and send the vendor to Paystack.
  *
- * Returns `undefined` for "leave alone", `null` for "clear", or a validated number.
- * See the header — this distinction is the point of the function.
+ * ## This does not create a listing
  *
- * `clearName` is omitted on create, where there is no third case: nothing is set
- * yet, so blank means "don't send the field" and can never mean "wipe it".
+ * It reserves the units out of the pool, opens a PENDING purchase and returns a
+ * payment URL. The listing appears when the webhook confirms the charge. So there
+ * is nothing to revalidate on the way out — there is no new state yet — and the
+ * function does not return on success.
+ *
+ * ## `redirect()` throws
+ *
+ * Next implements `redirect()` by throwing a control-flow error that the framework
+ * catches. Calling it inside a `try` would have the `catch` swallow the redirect and
+ * report it as a failure, so it sits deliberately outside and after all error
+ * handling.
  */
-function readNumeric(
-  formData: FormData,
-  name: string,
-  clearName: string | undefined,
-  schema: z.ZodType<number>,
-): { value: number | null | undefined } | { issue: string } {
-  if (clearName !== undefined && formData.get(clearName) !== null) return { value: null };
-
-  const raw = String(formData.get(name) ?? "").trim();
-  if (raw === "") return { value: undefined };
-
-  const parsed = schema.safeParse(Number(raw));
-  if (!parsed.success) {
-    return { issue: parsed.error.issues[0]?.message ?? "That value isn't valid." };
-  }
-  return { value: parsed.data };
-}
-
-/**
- * Add a catalogue product to this store.
- *
- * ## Why the `null` machinery above is not used here
- *
- * On `POST /vendor/products` there is no "clear" case: `vendorPrice` and `stockCap`
- * are optional, and **omitting them is the meaningful default** — the listing
- * inherits the catalogue's `basePrice` and takes no cap. There is nothing to wipe
- * because nothing is set yet, so an empty input can safely mean "don't send it".
- * That is the opposite of the update endpoint, where the same empty input would
- * clear a price the vendor set weeks ago.
- *
- * ## Adding something previously removed is a restore, not a create
- *
- * The API's `add()` finds the soft-deleted `VendorProduct` and restores it,
- * **overwriting its price and cap with whatever this form sends** — including
- * overwriting them with nulls when the fields are left blank. So a vendor re-adding
- * a listing at "catalogue price" silently discards the override they had before.
- * The form's copy says so; this action cannot detect it, since the API returns 201
- * either way and does not report which branch it took.
- */
-export async function createListing(
+export async function buyStock(
   _previous: ListingState,
   formData: FormData,
 ): Promise<ListingState> {
   const productId = String(formData.get("productId") ?? "");
   if (!productId) return { error: "Something was missing from that request." };
 
-  const fieldErrors: Record<string, string> = {};
+  const raw = String(formData.get("quantity") ?? "").trim();
+  if (raw === "") return { fieldErrors: { quantity: "Enter how many units to buy." } };
 
-  // No `clear` checkbox on this form — blank means absent, which is the correct
-  // default here. See `readNumeric`.
-  const price = readNumeric(formData, "vendorPrice", undefined, priceField);
-  const cap = readNumeric(formData, "stockCap", undefined, capField);
-  if ("issue" in price) fieldErrors["vendorPrice"] = price.issue;
-  if ("issue" in cap) fieldErrors["stockCap"] = cap.issue;
-  if (Object.keys(fieldErrors).length > 0) return { fieldErrors };
-
-  const body: CreateVendorListingBody = {
-    productId,
-    ...("value" in price && typeof price.value === "number" ? { vendorPrice: price.value } : {}),
-    ...("value" in cap && typeof cap.value === "number" ? { stockCap: cap.value } : {}),
-  };
+  const parsed = quantityField.safeParse(Number(raw));
+  if (!parsed.success) {
+    return {
+      fieldErrors: {
+        quantity: parsed.error.issues[0]?.message ?? "That quantity isn't valid.",
+      },
+    };
+  }
 
   const { session } = await requireApprovedVendor("/products/add");
-  const result = await vendor.createListing(ctxFor(session), body);
+  const result = await vendor.initiateStockPurchase(ctxFor(session), {
+    productId,
+    quantity: parsed.data,
+  });
 
   if (!result.ok) {
-    if (vendor.isDuplicateListing(result.error)) {
-      // 409 means a LIVE listing exists. Not a restore case — see the api-client's
-      // note on `isDuplicateListing`; there is nothing to restore.
-      return { error: "This product is already in your store. Find it under Live." };
+    if (vendor.isInsufficientPoolStock(result.error)) {
+      return {
+        error:
+          "Rimalis doesn't have that many units left — another vendor may have just bought some. Refresh to see what's available and try a smaller quantity.",
+      };
+    }
+    if (vendor.isProductCostNotSet(result.error)) {
+      return {
+        error:
+          "Rimalis hasn't set a vendor price for this product yet, so it can't be bought. It'll become available once they do.",
+      };
     }
     if (vendor.isProductNotAvailable(result.error)) {
       return {
         error:
-          "Rimalis has withdrawn this product since this page loaded, so it can't be listed. Refresh to see what's still available.",
+          "Rimalis has withdrawn this product since this page loaded. Refresh to see what's still available.",
       };
     }
     if (result.error.kind === "http" && result.error.status === 404) {
@@ -164,14 +119,17 @@ export async function createListing(
     return { error: shopperMessage(result.error) };
   }
 
-  // The listing is live the moment it is created, so the storefront count, the
-  // products page and the "add" page's own already-listed markers all move.
-  revalidatePath("/products");
-  revalidatePath("/products/add");
-  revalidatePath("/");
-  return { message: `${result.data.product.name} is now in your store.` };
+  // Outside any try/catch — see the header. Nothing below this line runs.
+  redirect(result.data.authorizationUrl);
 }
 
+/**
+ * Switch a listing on or off from the full editor.
+ *
+ * Down to one field now that price and stock are not the vendor's to set. Kept as a
+ * `useActionState` action because the products page still renders it as a form with
+ * a saved/failed banner.
+ */
 export async function updateListing(
   _previous: ListingState,
   formData: FormData,
@@ -179,20 +137,7 @@ export async function updateListing(
   const listingId = String(formData.get("listingId") ?? "");
   if (!listingId) return { error: "Something was missing from that request." };
 
-  const price = readNumeric(formData, "vendorPrice", "clearPrice", priceField);
-  const cap = readNumeric(formData, "stockCap", "clearCap", capField);
-
-  const fieldErrors: Record<string, string> = {};
-  if ("issue" in price) fieldErrors["vendorPrice"] = price.issue;
-  if ("issue" in cap) fieldErrors["stockCap"] = cap.issue;
-  if (Object.keys(fieldErrors).length > 0) return { fieldErrors };
-
   const body: UpdateVendorListingBody = {
-    // Spread conditionally so an untouched field is genuinely ABSENT from the JSON
-    // rather than present as `undefined` — which some serialisers drop and some send
-    // as `null`, and only one of those is harmless here.
-    ...("value" in price && price.value !== undefined ? { vendorPrice: price.value } : {}),
-    ...("value" in cap && cap.value !== undefined ? { stockCap: cap.value } : {}),
     ...(formData.get("isActive") !== null ? { isActive: formData.get("isActive") === "on" } : {}),
   };
 

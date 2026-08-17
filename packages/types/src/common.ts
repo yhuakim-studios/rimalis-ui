@@ -7,7 +7,7 @@
  * decimal STRING, because the API keeps it as a Prisma `Decimal` end-to-end.
  * Typing one as `number` reintroduces exactly the float drift the API went to
  * some trouble to remove. The genuine numbers are `commissionRate`,
- * `effectiveStock`, `stockCap`, `weightGrams`, `stock`, `quantity` and the
+ * `ownedStock`, `totalPurchased`, `weightGrams`, `stock`, `quantity` and the
  * pagination fields — nothing else.
  *
  * **2. Nullability is transcribed, not guessed.** Every `| null` here was read

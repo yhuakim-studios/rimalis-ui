@@ -74,12 +74,16 @@ export interface VendorSummary {
 /**
  * The pool product as it appears inside a listing.
  *
- * Several fields here are operational rather than customer-facing and are
- * present only because the API returns the whole row. **Do not render
- * `basePrice`, `stock`, `lowStockAt`, `lowStockAlertedAt` or `status`.** Use
- * `MarketplaceListing.effectivePrice` and `effectiveStock` instead: `basePrice`
- * is not what this vendor charges, and `stock` is the shared pool rather than
- * what this vendor can sell.
+ * `retailPrice` IS the price to display — one admin-set price per product,
+ * identical for every vendor carrying it. There is no per-vendor override any
+ * more, so nothing has to be resolved before rendering.
+ *
+ * The operational fields are still on the wire because the API returns the
+ * whole row. **Do not render `costPrice`, `stock`, `lowStockAt`,
+ * `lowStockAlertedAt` or `status`.** `costPrice` in particular is what vendors
+ * pay the platform — showing a shopper the wholesale price of what they are
+ * buying is not a feature. `stock` is the platform's unsold remainder, not what
+ * this vendor can sell; that is `MarketplaceListing.ownedStock`.
  */
 export interface ListingProduct {
   /** ⚠️ NOT the id for a detail page or a cart line. See `MarketplaceListing.id`. */
@@ -88,9 +92,16 @@ export interface ListingProduct {
   name: string;
   slug: string;
   description: string | null;
-  /** Operational. The price to display is `MarketplaceListing.effectivePrice`. */
-  basePrice: Money;
-  /** Shared pool stock across ALL vendors. Display `effectiveStock` instead. */
+  /** What the shopper pays. Set by an admin; the same for every vendor. */
+  retailPrice: Money;
+  /**
+   * ⚠️ What VENDORS pay the platform per unit. Never render this to a shopper.
+   *
+   * It is on the wire because the marketplace and the vendor catalogue share
+   * one product shape. Treat it as internal.
+   */
+  costPrice: Money;
+  /** The PLATFORM's unsold remainder. Display `ownedStock` instead. */
   stock: number;
   lowStockAt: number;
   lowStockAlertedAt: IsoDateTime | null;
@@ -136,39 +147,25 @@ export interface MarketplaceListing {
   id: Uuid;
   vendorId: Uuid;
   productId: Uuid;
-  /**
-   * This vendor's price override. `null` means `product.basePrice` applies.
-   *
-   * Do not render this or `basePrice` — render `effectivePrice`, which is
-   * already the resolved answer.
-   */
-  vendorPrice: Money | null;
-  /** The vendor's self-imposed ceiling on units from the shared pool. `null` = uncapped. */
-  stockCap: number | null;
-  /**
-   * `vendorPrice ?? product.basePrice` — **what the customer actually pays, and
-   * the only price to display.**
-   *
-   * A real database column maintained by triggers, which is what makes
-   * `sort=price_asc`/`price_desc` and `minPrice`/`maxPrice` exact for
-   * fallback-priced listings as well as overridden ones.
-   */
-  effectivePrice: Money;
   /** Always `true` on a publicly visible listing; the API filters the rest out. */
   isActive: boolean;
   createdAt: IsoDateTime;
   updatedAt: IsoDateTime;
   deletedAt: IsoDateTime | null;
   /**
-   * What this vendor can actually sell: pool stock capped by `stockCap`.
+   * What this vendor can actually sell — units they bought and still hold.
    *
-   * **Can be 0 on a visible listing** — out-of-stock listings are returned, not
-   * hidden, so a shopper can see the product exists. Every add-to-cart path has
-   * to handle it, and the seed carries such a listing (`ANKR-PB-20K`).
+   * **Can be 0 on a visible listing** — sold-out listings are returned, not
+   * hidden, so a shopper can see the product exists and that this seller is out.
+   * Every add-to-cart path has to handle it, and the seed carries such a
+   * listing (`ANKR-PB-20K`).
    *
-   * Computed per response, so it is NOT sortable or filterable.
+   * A real column, so unlike the `effectiveStock` it replaces it is sortable
+   * and filterable.
    */
-  effectiveStock: number;
+  ownedStock: number;
+  /** Lifetime units this vendor has bought. Vendor-facing; not for the storefront. */
+  totalPurchased: number;
   product: ListingProduct;
   vendor: VendorSummary;
 }

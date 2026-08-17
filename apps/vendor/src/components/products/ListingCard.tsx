@@ -1,32 +1,33 @@
-import { AlertTriangle, ImageOff, RotateCcw } from "lucide-react";
+import { ImageOff, RotateCcw, ShoppingCart } from "lucide-react";
+import Link from "next/link";
 import type { VendorListing } from "@rimalis/types";
 import { removeListing, restoreListing, setListingActive } from "@/lib/listing-actions";
 import { Badge, Card } from "@/components/primitives";
-import { formatMoney } from "@/lib/money";
-import { monogram } from "@/lib/format";
-import { PriceEditor } from "./PriceEditor";
+import { formatMoney, formatNaira, parseMoney, subtract } from "@/lib/money";
+import { monogram, pluralise } from "@/lib/format";
 
 /**
  * One listing, with everything a vendor can change about it.
  *
- * ## The three prices, and why all three are shown
+ * ## One price, and it is not the vendor's
  *
- * - `product.basePrice` — the catalogue price an admin set.
- * - `vendorPrice` — this vendor's override. **`null` is normal**, and means "follow
- *   the catalogue"; it is not missing data.
- * - `effectivePrice` — what a shopper is charged. Derived by the API as
- *   `vendorPrice ?? basePrice` and guarded by a database trigger, so it is read-only.
+ * `product.retailPrice` is what shoppers pay, set by an admin and identical across
+ * every vendor. `product.costPrice` is what this vendor paid per unit. The gap is
+ * their margin, and commission comes out of it — so the card shows the margin rather
+ * than making them subtract two numbers to find out whether the listing is worth
+ * keeping. There is no price editor because there is nothing to edit.
  *
- * Showing only the effective price would make "inheriting ₦280,000" and "overridden
- * to ₦280,000" look identical, and they are not: one tracks future catalogue changes
- * and the other does not. So the card names which is in force.
+ * ## `ownedStock` is inventory, and `0` is the state that matters
  *
- * ## Availability is a minimum, not a count
+ * Real units this vendor paid for, not a ceiling over a shared pool. At zero the
+ * listing is SOLD OUT, not delisted — the row is intact, the vendor sold through it,
+ * and buying another batch tops up the same listing. That distinction gets the
+ * loudest treatment on the card, because a vendor who reads "sold out" as "removed"
+ * goes looking for a listing they already have.
  *
- * `stockCap` is a per-vendor ceiling, not inventory. What a vendor can actually sell
- * is `min(stockCap ?? ∞, product.stock)` — because `product.stock` is the shared pool
- * every vendor draws from. A cap above the pool is legal and does nothing, so this
- * says so rather than showing a number the vendor cannot reach.
+ * `product.stock` is deliberately NOT shown as availability. It is the platform's
+ * unsold remainder — how many more this vendor could buy — and putting it next to
+ * `ownedStock` invites reading it as inventory they can sell.
  *
  * ## Why removal and restore are plain forms with no confirmation dialog
  *
@@ -41,10 +42,9 @@ export function ListingCard({ listing }: { listing: VendorListing }) {
   const removed = listing.deletedAt !== null;
   const image = product.images[0];
 
-  const inherited = listing.vendorPrice === null;
-  const poolStock = product.stock;
-  const sellable = listing.stockCap === null ? poolStock : Math.min(listing.stockCap, poolStock);
-  const capAbovePool = listing.stockCap !== null && listing.stockCap > poolStock;
+  const soldOut = listing.ownedStock === 0;
+  const unitMargin = subtract(parseMoney(product.retailPrice), parseMoney(product.costPrice));
+  const sold = listing.totalPurchased - listing.ownedStock;
 
   return (
     <Card
@@ -94,37 +94,36 @@ export function ListingCard({ listing }: { listing: VendorListing }) {
               <Badge tone="neutral">Switched off</Badge>
             )}
 
-            {/* The pool, not this vendor's stock. Zero here means nobody can sell it,
-                which is not the vendor's fault and not theirs to fix. */}
-            {poolStock === 0 && <Badge tone="danger">Out of stock</Badge>}
-
-            {inherited && <Badge tone="neutral">Catalogue price</Badge>}
+            {/* This vendor's own inventory. Unlike the old pool-empty badge, this
+                one IS theirs to fix — by buying more — so it links to doing that. */}
+            {soldOut && !removed && <Badge tone="danger">Sold out</Badge>}
           </div>
 
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-meta">
             <span className="text-ink-muted">
               Shoppers pay{" "}
               <span className="font-semibold text-ink tabular-nums">
-                {formatMoney(listing.effectivePrice)}
+                {formatMoney(product.retailPrice)}
               </span>
             </span>
-            {!inherited && (
-              <span className="text-ink-subtle tabular-nums">
-                catalogue {formatMoney(product.basePrice)}
-              </span>
-            )}
             <span className="text-ink-subtle tabular-nums">
-              {sellable} sellable
-              {listing.stockCap !== null && ` (cap ${String(listing.stockCap)})`}
+              you paid {formatMoney(product.costPrice)}
+            </span>
+            <span className="text-ink-subtle tabular-nums">
+              {formatNaira(unitMargin)} margin each
             </span>
           </div>
 
-          {capAbovePool && (
-            <p className="flex items-start gap-1.5 text-meta text-ink-subtle">
-              <AlertTriangle className="mt-0.5 size-3 shrink-0" strokeWidth={1.75} aria-hidden />
-              Your cap is above the {poolStock} in the shared pool, so it has no effect right now.
-            </p>
-          )}
+          <p className="text-meta text-ink-subtle tabular-nums">
+            {soldOut ? (
+              <span className="font-semibold text-ink">
+                0 left — buy more to keep selling
+              </span>
+            ) : (
+              <>{pluralise(listing.ownedStock, "unit")} left</>
+            )}
+            {sold > 0 && ` · ${String(sold)} sold of ${String(listing.totalPurchased)} bought`}
+          </p>
         </div>
       </div>
 
@@ -142,14 +141,18 @@ export function ListingCard({ listing }: { listing: VendorListing }) {
           </form>
         ) : (
           <>
-            <PriceEditor listing={listing} />
+            {/* Restocking is a purchase, so it leaves for the catalogue rather
+                than being an inline form — the vendor is about to be charged and
+                needs the cost, margin and pool ceiling in front of them. */}
+            <Link
+              href={`/products/add?q=${encodeURIComponent(product.sku)}`}
+              prefetch={false}
+              className="inline-flex items-center gap-1.5 rounded-input border border-divider-strong px-3 py-2 text-meta font-medium transition-colors hover:bg-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+            >
+              <ShoppingCart className="size-3.5" strokeWidth={1.75} aria-hidden />
+              {soldOut ? "Buy more stock" : "Buy more"}
+            </Link>
 
-            {/*
-              A one-field form, not part of the price editor. Routing the toggle
-              through the full editor would submit the price inputs too, and an
-              untouched empty price field is the `null` that CLEARS an override —
-              see the header of listing-actions.ts.
-            */}
             <form action={setListingActive}>
               <input type="hidden" name="listingId" value={listing.id} />
               <input type="hidden" name="isActive" value={listing.isActive ? "false" : "true"} />

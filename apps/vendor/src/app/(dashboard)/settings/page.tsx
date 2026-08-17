@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Card } from "@/components/primitives";
 import { SignOutButton } from "@/components/SignOutButton";
 import { requireApprovedVendor } from "@/lib/auth";
@@ -67,15 +68,27 @@ export default async function SettingsPage() {
             <dt className="text-caption text-ink-muted">Commission</dt>
             <dd className="text-caption font-medium tabular-nums">
               {/*
-                `null` means the platform default applies, which is 10% — but that
-                default lives in the API's own `PLATFORM_COMMISSION_RATE` and is not
-                exposed on this response. So this says "standard rate" rather than
-                asserting a number the client cannot actually read; a hardcoded 10%
-                here would silently become a lie the day it changed.
+                `commissionRateOverride` is null for most vendors, and null does NOT
+                mean "the platform default" — it means the referral commission
+                ladder decides, so the real rate depends on how many sellers this
+                vendor has brought on. That number is on `/referrals`, which
+                resolves the precedence server-side; this response cannot.
+
+                So an override shows the agreed figure, and everything else points
+                at the page that knows. Printing "10%" here would be wrong for
+                every vendor who has recruited anyone.
               */}
-              {vendor.commissionRate === null
-                ? "Standard rate"
-                : `${String(Math.round(vendor.commissionRate * 100))}%`}
+              {vendor.commissionRateOverride === null ? (
+                <Link
+                  href="/referrals"
+                  prefetch={false}
+                  className="underline decoration-divider underline-offset-4"
+                >
+                  Set by your tier
+                </Link>
+              ) : (
+                `${String(Math.round(vendor.commissionRateOverride * 100))}% (agreed)`
+              )}
             </dd>
           </div>
           <div className="flex items-baseline justify-between gap-4">

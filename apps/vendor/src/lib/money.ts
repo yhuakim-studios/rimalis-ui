@@ -141,7 +141,9 @@ export function parseMoney(decimal: string): Minor {
  * narrow — under `noUncheckedIndexedAccess` and `strictNullChecks` the two
  * signatures read differently at the call site, which is the point.
  */
-export function parseMoneyOrNull(decimal: string | null | undefined): Minor | null {
+export function parseMoneyOrNull(
+  decimal: string | null | undefined,
+): Minor | null {
   return decimal === null || decimal === undefined ? null : parseMoney(decimal);
 }
 
@@ -178,12 +180,49 @@ export function subtract(a: Minor, b: Minor): Minor {
   return guard(Math.max(0, a - b));
 }
 
+/**
+ * `a - b`, **signed** — unlike `subtract`, which clamps at zero.
+ *
+ * Exists for the tier calculator, where a negative result is meaningful rather
+ * than a data problem: a rung the vendor has already passed carries a worse rate,
+ * so "what this rung would have kept you" is legitimately less than what they
+ * keep today, and clamping it to ₦0 would render that row as "no difference".
+ */
+export function difference(a: Minor, b: Minor): Minor {
+  return guard(a - b);
+}
+
+/**
+ * `amount × rate`, rounded to whole kobo — for a commission or a margin share.
+ *
+ * ⚠️ **An estimate, and it cannot match the API to the kobo.** The API charges
+ * commission **per order line**, rounding each one half-up in naira before
+ * summing (`splitMarginCommission` → `roundMoney`). This applies one rate to one
+ * aggregate, so the two differ by the accumulated per-line rounding — sub-kobo
+ * per line, a few kobo over a month. That is acceptable in a projection labelled
+ * as one, and would not be acceptable anywhere near a real payout.
+ *
+ * `Math.round` rather than half-up-away-from-zero: the difference only shows on
+ * negative values, and `rate` is a fraction of a margin that is floored at zero
+ * upstream, so the input here is never negative.
+ */
+export function applyRate(amount: Minor, rate: number): Minor {
+  if (!Number.isFinite(rate) || rate < 0 || rate > 1) {
+    throw new Error(
+      `Commission rate must be a fraction between 0 and 1, got ${rate}`,
+    );
+  }
+  return guard(Math.round(amount * rate));
+}
+
 function guard(value: number): Minor {
   if (!Number.isSafeInteger(value)) {
     throw new Error(`Money arithmetic produced a non-integer: ${value}`);
   }
   if (value > MAX_SAFE_MINOR) {
-    throw new Error(`Money arithmetic exceeded the ${MAX_SAFE_MINOR} kobo ceiling: ${value}`);
+    throw new Error(
+      `Money arithmetic exceeded the ${MAX_SAFE_MINOR} kobo ceiling: ${value}`,
+    );
   }
   return value as Minor;
 }

@@ -270,6 +270,29 @@ export function compactNaira(kobo: number): string {
 }
 
 /**
+ * Every kobo, from a plain number — `1234000` → `"₦12,340.00"`.
+ *
+ * The counterpart to `compactNaira`, and it exists for the same reason: a Client
+ * Component receives kobo as an ordinary JSON `number` across the RSC boundary,
+ * not as a branded `Minor`, so it cannot call `money.formatNaira` without a cast —
+ * and casting is precisely what that brand exists to prevent.
+ *
+ * Use this where the figure is the point (a "you kept ₦X" claim) and
+ * `compactNaira` where it is a label in a dense table. Server Components holding
+ * a real `Minor` should keep using `formatNaira`, which is the same output.
+ */
+export function nairaFromKobo(kobo: number): string {
+  return NAIRA_EXACT.format(kobo / 100);
+}
+
+const NAIRA_EXACT = new Intl.NumberFormat("en-NG", {
+  style: "currency",
+  currency: "NGN",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+/**
  * Y-axis ticks: clean round numbers from 0 to at or above `maxKobo`.
  *
  * Snaps the top to 1, 2 or 5 times a power of ten, which is what makes ticks read

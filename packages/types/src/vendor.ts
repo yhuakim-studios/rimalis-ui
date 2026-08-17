@@ -9,9 +9,9 @@ import type { Order, OrderItem } from "./commerce";
  *
  * Distinct from `catalog.ts`, which describes the same underlying rows as a
  * *shopper* sees them. The split is not cosmetic: a storefront listing exposes
- * `effectivePrice` and hides `vendorPrice`, while the vendor app needs both,
- * because "what I set" and "what is charged" differ whenever `vendorPrice` is
- * null and the product's `basePrice` is standing in.
+ * `retailPrice` alone, while the vendor app also needs `costPrice` and
+ * `ownedStock`, because what a vendor paid and how much they have left are
+ * their business and nobody else's.
  *
  * ## These were transcribed from the API's CODE, not only its document
  *
@@ -80,13 +80,40 @@ export interface VendorProfile {
   paystackSettlementBank: string | null;
   paystackAccountNumber: string | null;
   /**
-   * A per-vendor override of the platform rate, as a fraction — `0.08` is 8%.
+   * An admin-negotiated override of this vendor's commission, as a fraction —
+   * `0.08` is 8%.
    *
-   * `null` means the platform default applies (`PLATFORM_COMMISSION_RATE`, 10%).
+   * ⚠️ **`null` is the normal case and does NOT mean "the platform default".**
+   * When this is null the rate comes from the referral commission ladder: the
+   * best `CommissionTier` rung the vendor's qualified referral count has earned.
+   * Rendering "the default 10%" whenever this is null is wrong for every vendor
+   * who has recruited anyone.
+   *
+   * To show a vendor the rate they are actually charged, read `currentRate` from
+   * `GET /vendor/referrals/me` — the API resolves the precedence there and this
+   * field cannot answer the question on its own.
+   *
    * A genuine `number` rather than `Money`: it is a rate, not an amount, and the
    * column is a `Float`. Only an admin can change it.
    */
-  commissionRate: number | null;
+  commissionRateOverride: number | null;
+  /**
+   * This vendor's own code, for recruiting other vendors — `RIM-` plus six
+   * Crockford base32 characters.
+   */
+  referralCode: string;
+  /** The vendor who recruited this one, if any. */
+  referredByVendorId: Uuid | null;
+  /**
+   * Recruits who are APPROVED **and** have paid for stock. What the ladder is
+   * scored on; a signup alone counts for nothing.
+   */
+  qualifiedReferralCount: number;
+  /**
+   * When THIS vendor started counting toward their own referrer's tier. Null if
+   * they were not recruited, or have not yet cleared both gates.
+   */
+  referralQualifiedAt: IsoDateTime | null;
   approvedAt: IsoDateTime | null;
   approvedById: Uuid | null;
   createdAt: IsoDateTime;
@@ -144,28 +171,26 @@ export interface UpdatePayoutInfoBody {
 /**
  * One of this vendor's listings, from `GET /vendor/products`.
  *
- * ## The three prices, and which is which
+ * ## There is one price, and the vendor does not set it
  *
- * - `vendorPrice` — what this vendor set. **`null` is normal**, and means "use
- *   the pool price"; it is not missing data.
- * - `product.basePrice` — the catalogue price, set by an admin.
- * - `effectivePrice` — what a shopper is actually charged. Computed by the API
- *   as `vendorPrice ?? product.basePrice`, and guarded by a database trigger
- *   (migration `guard_effective_price_direct_writes`) so it cannot be written
- *   directly.
+ * `product.retailPrice` is what a shopper pays, and it is the same for every
+ * vendor carrying the product. `product.costPrice` is what this vendor paid per
+ * unit to stock it. The difference is their gross margin, and the platform's
+ * commission comes out of that margin rather than off the top of the sale.
  *
- * A price editor must therefore show `effectivePrice` as the live number while
- * editing `vendorPrice`, and must distinguish "inheriting ₦280,000" from
- * "overridden to ₦280,000" — clearing an override is a different action from
- * setting the same figure, and only one of them tracks future catalogue changes.
+ * A listing therefore has no price fields of its own and no price editor. What
+ * a vendor controls is whether the listing is on, and how much stock they buy.
  *
- * ## Stock
+ * ## Stock is owned, not shared
  *
- * `stockCap` is a per-vendor ceiling, not an inventory count. Real availability
- * is `min(stockCap ?? ∞, product.stock)`, because `product.stock` is the shared
- * pool every vendor draws from. A cap above the pool is legal and does nothing
- * — the seed ships one (`SAMS-A54`, cap 20 against stock 50) so the UI's
- * handling of it is reachable.
+ * `ownedStock` is real inventory this vendor paid for — not a ceiling over a
+ * shared pool. It is the only number that limits what they can sell, and
+ * `product.stock` (the platform's unsold remainder) has no bearing on it.
+ *
+ * **`ownedStock: 0` means sold out, not delisted.** The vendor still carries the
+ * product; buying another batch tops this same listing back up. Rendering that
+ * as "not listed" sends them to the catalogue to add a product they already
+ * have. The seed ships one (`ANKR-PB-20K`) so the state is reachable.
  */
 export interface VendorListing {
   /** The LISTING id. This is what `/products/[listingId]` uses on the storefront. */
@@ -173,12 +198,10 @@ export interface VendorListing {
   vendorId: Uuid;
   /** The pool product id — needed to add a listing, never to identify one. */
   productId: Uuid;
-  /** This vendor's override, or `null` to inherit `product.basePrice`. */
-  vendorPrice: Money | null;
-  /** Per-vendor ceiling, or `null` for "no cap beyond the shared pool". */
-  stockCap: number | null;
-  /** Derived and trigger-guarded: `vendorPrice ?? product.basePrice`. Read-only. */
-  effectivePrice: Money;
+  /** Units bought and not yet sold. `0` is sold out, not delisted. */
+  ownedStock: number;
+  /** Lifetime units bought, never decremented — for "sold 40 of the 50 you bought". */
+  totalPurchased: number;
   /** The vendor's own on/off switch. `false` hides the listing from the marketplace. */
   isActive: boolean;
   createdAt: IsoDateTime;
@@ -209,16 +232,73 @@ export interface ListVendorListingsQuery {
 }
 
 /**
- * `POST /vendor/products` — put a pool product in this store.
+ * `POST /vendor/stock-purchases` — buy inventory, which is how a listing is made.
  *
- * `productId` is the **product**, not a listing. One vendor may list a given
- * product once; a second attempt is a 409.
+ * There is no `POST /vendor/products` any more. A vendor cannot conjure a
+ * listing; they buy a quantity at the product's cost price and the listing is
+ * created by the Paystack webhook when the payment settles. Buying a product
+ * they already carry tops up the same listing rather than 409-ing.
+ *
+ * No price field, deliberately — the amount is `quantity × product.costPrice`,
+ * computed server-side. A client-supplied amount would be a client-supplied
+ * invoice.
  */
-export interface CreateVendorListingBody {
+export interface InitiateStockPurchaseBody {
   productId: Uuid;
-  /** Omit to inherit the catalogue's `basePrice`. A number, not a `Money` string. */
-  vendorPrice?: number;
-  stockCap?: number;
+  /** Units to buy. 1–1000. */
+  quantity: number;
+  /**
+   * Where Paystack returns the vendor. Defaults to the vendor app's purchase
+   * page; supply one only if you need somewhere else.
+   */
+  callbackUrl?: string;
+}
+
+/** What `POST /vendor/stock-purchases` returns. Redirect to `authorizationUrl`. */
+export interface StockPurchaseInit {
+  stockPurchaseId: Uuid;
+  reference: string;
+  totalCost: Money;
+  quantity: number;
+  /** Send the vendor here to pay. */
+  authorizationUrl: string;
+  accessCode: string;
+}
+
+export type StockPurchaseStatus = "PENDING" | "SUCCESS" | "FAILED" | "ABANDONED";
+
+/**
+ * A vendor's inventory purchase — `GET /vendor/stock-purchases`.
+ *
+ * `PENDING` means the units are reserved out of the pool and Paystack has not
+ * confirmed. It is **not** a failure: the return page should keep waiting
+ * rather than offer a retry, because retrying reserves a second batch. An
+ * abandoned purchase is swept after ~30 minutes and becomes `ABANDONED`, which
+ * releases the reservation.
+ */
+export interface StockPurchase {
+  id: Uuid;
+  vendorId: Uuid;
+  productId: Uuid;
+  quantity: number;
+  /** Snapshot of the cost price when the purchase opened. */
+  unitCost: Money;
+  totalCost: Money;
+  currency: string;
+  status: StockPurchaseStatus;
+  reference: string;
+  paidAt: IsoDateTime | null;
+  /** The listing this created or topped up. `null` until the purchase succeeds. */
+  vendorProductId: Uuid | null;
+  createdAt: IsoDateTime;
+  updatedAt: IsoDateTime;
+}
+
+/** `GET /vendor/stock-purchases` */
+export interface ListStockPurchasesQuery {
+  page?: number;
+  limit?: number;
+  status?: StockPurchaseStatus;
 }
 
 // ---------------------------------------------------------------------------
@@ -233,21 +313,22 @@ export interface CreateVendorListingBody {
  * listing of it. Never another vendor's: a product carried by five vendors has
  * five `VendorProduct` rows, and four of them are competitors' prices.
  *
- * ## `listing` is three states, not a boolean
+ * ## `listing` is context, and `ownedStock` is the state that matters
  *
- * Because `POST /vendor/products` behaves differently in each, and a UI that
- * collapses them lies about what the button will do:
+ * Buying stock always does the same thing now — open a listing or top one up —
+ * so `listing` no longer changes what the button does. What it changes is the
+ * copy:
  *
- * | `listing`                | Meaning         | Adding it does |
- * |--------------------------|-----------------|----------------|
- * | `null`                   | never listed    | creates a listing |
- * | `{ deletedAt: null }`    | in this store   | **409 `LISTING_EXISTS`** |
- * | `{ deletedAt: <date> }`  | removed         | **restores that row, overwriting its price and cap** |
+ * | `listing`                       | Meaning        | Say |
+ * |---------------------------------|----------------|-----|
+ * | `null`                          | never carried  | "Buy stock" |
+ * | `{ ownedStock: n > 0 }`         | in this store  | "In your store — n left. Buy more" |
+ * | `{ ownedStock: 0 }`             | **sold out**   | "Sold out — buy more to keep selling" |
+ * | `{ deletedAt: <date> }`         | removed        | "Removed — buying restores it" |
  *
- * The third is the one that bites. `add()` in `vendor-products.service.ts` treats
- * a soft-deleted listing as a restore-and-overwrite rather than a create, so a
- * vendor re-adding something they removed last month gets the old row with new
- * terms — and any UI presenting that as "add a new listing" is describing an edit.
+ * The sold-out row is the one that bites. It is NOT "not carried": the vendor
+ * has the listing and has sold through it. Presenting it as a fresh product
+ * hides the fact that they had stock and it ran out.
  */
 export interface CatalogueProduct extends ListingProduct {
   /** The CALLING vendor's listing, or `null` if they have never listed it. */
@@ -255,7 +336,11 @@ export interface CatalogueProduct extends ListingProduct {
     /** The listing id — usable directly with `/products/[listingId]`. */
     id: Uuid;
     isActive: boolean;
-    /** Non-null means removed; adding this product again restores this row. */
+    /** Units left. `0` is sold out, not "not carried". */
+    ownedStock: number;
+    /** Lifetime units bought through this listing. */
+    totalPurchased: number;
+    /** Non-null means removed; buying stock again revives this row. */
     deletedAt: IsoDateTime | null;
   } | null;
 }
@@ -279,17 +364,14 @@ export interface ListCatalogueQuery {
 }
 
 /**
- * `PATCH /vendor/products/:id`.
+ * `PATCH /vendor/products/:id` — visibility, and nothing else.
  *
- * ⚠️ `vendorPrice: null` **clears the override** and returns the listing to the
- * pool price. That is a different outcome from omitting the field, which leaves
- * it untouched — so a form that sends `null` for an untouched empty input will
- * silently wipe a price the vendor set. `undefined` and `null` are not
- * interchangeable on this endpoint.
+ * Price is the admin's and stock is whatever the vendor bought, so `isActive` is
+ * the only field left. The old `vendorPrice: null` / `stockCap: null` "clears
+ * the override" semantics — and the null-vs-undefined trap that came with them
+ * — are gone with the columns.
  */
 export interface UpdateVendorListingBody {
-  vendorPrice?: number | null;
-  stockCap?: number | null;
   isActive?: boolean;
 }
 
@@ -435,4 +517,99 @@ export interface ListPayoutsQuery {
 export interface PayoutSummary {
   lifetimeTotal: Money;
   currency: string;
+}
+
+// ---------------------------------------------------------------------------
+// Referrals and the commission ladder
+// ---------------------------------------------------------------------------
+
+/**
+ * One rung of the commission ladder, from `GET /commission-tiers`.
+ *
+ * Readable by any authenticated user, not just approved vendors — a shopper
+ * weighing up whether to apply needs to see what recruiting is worth.
+ *
+ * The ladder is guaranteed **monotonic** by the API's write path: a rung
+ * requiring more referrals never charges a higher rate, and no two active rungs
+ * share a `minReferrals`. A UI may therefore sort by either field and get the
+ * same order, and may present "next rung" as unambiguous.
+ */
+export interface CommissionTier {
+  id: Uuid;
+  /** Display order, and the handle an admin edits against. */
+  level: number;
+  name: string;
+  /** Qualified referrals needed to reach this rung. */
+  minReferrals: number;
+  /**
+   * Fraction of the vendor's **margin** (retail − cost), not of revenue, and not
+   * a percentage: `0.09` is 9%.
+   */
+  rate: number;
+  /** Retired rungs are still returned. Skip them when resolving a rate. */
+  isActive: boolean;
+  createdAt: IsoDateTime;
+  updatedAt: IsoDateTime;
+}
+
+/**
+ * `GET /vendor/referrals/me` — everything the referral screen needs in one call.
+ *
+ * ## `currentRate` and `currentTier` can disagree, on purpose
+ *
+ * `currentRate` is what this vendor is actually charged. `currentTier` is where
+ * they stand on the ladder. An admin override beats the ladder, so when
+ * `rateIsOverridden` is true the two describe different things and both are
+ * worth showing — suppressing the tier would hide a vendor's referral progress,
+ * and suppressing the rate would quote them a number they are not paying.
+ *
+ * ## What counts, and what a UI must say
+ *
+ * `qualifiedReferralCount` only counts recruits who are approved **and** have
+ * bought stock. `pendingReferralCount` is the rest of the pipeline. A screen that
+ * shows only the qualified figure reads as though a recruit's signup was lost.
+ *
+ * Credit is never withdrawn once earned: if a recruit is later suspended, the
+ * count and the tier stay. Say so somewhere on the screen — an unexplained tier
+ * that never drops is fine, but a vendor who assumes it *should* have dropped
+ * will not trust the number.
+ */
+export interface ReferralSummary {
+  referralCode: string;
+  qualifiedReferralCount: number;
+  /** Applied, not yet qualified. Excludes rejected applications. */
+  pendingReferralCount: number;
+  /** The rate actually charged right now, override included. A fraction. */
+  currentRate: number;
+  rateIsOverridden: boolean;
+  currentTier: CommissionTier | null;
+  /** Null when the vendor is on the top rung. */
+  nextTier: CommissionTier | null;
+  /** Qualified referrals still needed for `nextTier`. Null with no next rung. */
+  referralsNeeded: number | null;
+}
+
+/**
+ * One row of `GET /vendor/referrals` — a vendor this vendor recruited.
+ *
+ * Deliberately thin. A referrer sees whether their recruit is live and whether
+ * they have qualified, and nothing about that recruit's own commission terms,
+ * payout details or referrals. Do not ask the API to widen it.
+ */
+export interface ReferralRecruit {
+  id: Uuid;
+  storeName: string;
+  slug: string;
+  status: VendorStatus;
+  /** Null means one of the two gates is still outstanding. */
+  referralQualifiedAt: IsoDateTime | null;
+  /** When they applied. */
+  createdAt: IsoDateTime;
+}
+
+/** `GET /vendor/referrals`. Omit `qualified` for both kinds. */
+export interface ListReferralsQuery {
+  page?: number;
+  limit?: number;
+  qualified?: boolean;
 }
