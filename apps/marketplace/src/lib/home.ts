@@ -140,10 +140,10 @@ export async function loadHomeData(): Promise<HomeData> {
     return {
       listingId: listing.id,
       name: listing.product.name,
-      // `effectivePrice`, never `basePrice` or `vendorPrice`. Those are the two
-      // inputs to a price; this is the resolved answer, and it is what the
-      // customer is charged.
-      price: formatMoney(listing.effectivePrice),
+      // `product.retailPrice` — the one admin-set price, identical for every
+      // vendor carrying this product. Never `costPrice`, which is what the vendor
+      // paid us and would hand every competitor their margin.
+      price: formatMoney(listing.product.retailPrice),
       imageUrl: image?.url ?? null,
       imageAlt: imageAlt(image, listing.product.name),
       storeName: listing.vendor.storeName,

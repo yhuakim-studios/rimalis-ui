@@ -177,7 +177,7 @@ export async function applyAsVendor(
 
   if (!result.ok) {
     const { error } = result;
-    if (vendor.isDuplicateListing(error)) {
+    if (vendor.isVendorProfileExists(error)) {
       // 409 — an application is already on file. The gate knows which state.
       redirect("/pending");
     }

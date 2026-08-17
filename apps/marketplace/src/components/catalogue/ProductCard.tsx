@@ -11,11 +11,11 @@ import { availabilityOf, imageAlt, primaryImage } from "@/lib/listing";
  *
  * ## The three things this gets right that an inline version would not
  *
- * **1. It renders `effectivePrice`, never `basePrice` or `vendorPrice`.** Those
- * two are the *inputs* to a price; `effectivePrice` is the answer, resolved
- * server-side. Rendering `basePrice` shows the admin's catalogue price rather than
- * what this vendor charges — a wrong number that looks completely plausible, and
- * one a shopper only discovers at checkout.
+ * **1. It renders `product.retailPrice`, never `costPrice`.** There is one price
+ * per product now, set by an admin and identical for every vendor carrying it, so
+ * there is nothing to resolve. `costPrice` is what the vendor paid the platform
+ * for their stock; rendering it would both undercut the real price and publish
+ * every seller's margin to their competitors.
  *
  * **2. It links by `listing.id`, never `product.id`.** One product carried by
  * three vendors has one product id and three listing ids. A link on `product.id`
@@ -96,7 +96,7 @@ export function ProductCard({ listing }: { listing: MarketplaceListing }) {
           {/* `mt-auto` pins the price to the bottom of the card regardless of
               how many lines the title took. */}
           <p className="mt-auto text-section text-ink">
-            {formatMoney(listing.effectivePrice)}
+            {formatMoney(listing.product.retailPrice)}
           </p>
         </div>
       </Link>

@@ -253,7 +253,7 @@ export async function loadCart(): Promise<CartView> {
     const listing = result.data;
     const availability = availabilityOf(listing);
     const available = availability.kind === "out_of_stock" ? 0 : availability.available;
-    const unit = parseMoney(listing.effectivePrice);
+    const unit = parseMoney(listing.product.retailPrice);
     const image = primaryImage(listing.product.images);
     const lineTotal = multiply(unit, line.quantity);
     minorTotals.set(line.listingId, lineTotal);
