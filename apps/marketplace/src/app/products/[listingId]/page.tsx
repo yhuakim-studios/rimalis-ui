@@ -201,9 +201,11 @@ export default async function ProductPage({
           </div>
 
           <div className="flex flex-col gap-2">
-            {/* `effectivePrice`, never `basePrice` or `vendorPrice` — those are
-                the inputs; this is the resolved answer. */}
-            <p className="text-display text-ink">{formatMoney(listing.effectivePrice)}</p>
+            {/* `product.retailPrice` — one price per product, the same from every
+                vendor. Never `costPrice`: that is this vendor's wholesale cost. */}
+            <p className="text-display text-ink">
+              {formatMoney(listing.product.retailPrice)}
+            </p>
 
             {availability.kind === "out_of_stock" ? (
               <Badge tone="danger">Out of stock</Badge>
@@ -216,7 +218,7 @@ export default async function ProductPage({
 
           {/*
             `available` is derived here rather than inside the form, so the one
-            place that knows how `effectiveStock` and `isActive` combine stays
+            place that knows how `ownedStock` and `isActive` combine stays
             `lib/listing.ts`. The form takes a number and a ceiling; it does not
             re-derive availability and cannot disagree with the badge above it.
           */}

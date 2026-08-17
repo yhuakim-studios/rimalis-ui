@@ -38,10 +38,17 @@ export const imageAlt = (image: ProductImage | null, productName: string): strin
  * How a listing can be bought, as a single discriminant.
  *
  * Derived rather than read from a field because the API has no such field: the
- * information is spread across `effectiveStock` and `isActive`, and the rules for
+ * information is spread across `ownedStock` and `isActive`, and the rules for
  * combining them are the same on a grid card, a detail page and a cart line. One
  * function means those three cannot disagree — which they will, if each writes
  * its own `stock > 0 ? … : …`.
+ *
+ * `ownedStock` is inventory THIS vendor bought and holds. It replaced a derived
+ * `effectiveStock` (pool stock capped per vendor) when the platform moved to
+ * prepaid wholesale: two vendors carrying one product now draw down separate
+ * inventories, so one selling out no longer empties the other's listing.
+ * `product.stock` is the platform's unsold remainder and must never be shown to
+ * a shopper as availability.
  *
  * Note what is NOT a state here: a listing being invisible. Suspended vendors,
  * inactive listings and UNAVAILABLE products are filtered out by the API and
@@ -60,10 +67,10 @@ export type Availability =
 export const LOW_STOCK_THRESHOLD = 5;
 
 export const availabilityOf = (listing: MarketplaceListing): Availability => {
-  if (listing.effectiveStock <= 0) return { kind: "out_of_stock" };
-  if (listing.effectiveStock <= LOW_STOCK_THRESHOLD)
-    return { kind: "low_stock", available: listing.effectiveStock };
-  return { kind: "in_stock", available: listing.effectiveStock };
+  if (listing.ownedStock <= 0) return { kind: "out_of_stock" };
+  if (listing.ownedStock <= LOW_STOCK_THRESHOLD)
+    return { kind: "low_stock", available: listing.ownedStock };
+  return { kind: "in_stock", available: listing.ownedStock };
 };
 
 export const isBuyable = (listing: MarketplaceListing): boolean =>
