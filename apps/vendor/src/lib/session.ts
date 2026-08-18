@@ -35,23 +35,23 @@ import { sessionSecret } from "./env";
  * credentials for the API, so they are unreadable rather than merely
  * untampered-with.
  *
- * ## `SameSite=Strict` here, unlike the marketplace
+ * ## `SameSite=Lax`, for the same reason as the marketplace
  *
- * The storefront is forced onto `Lax` because Paystack returns a shopper to
- * `/checkout/callback` as a cross-site top-level navigation, and a Strict cookie
- * is not sent on those — the receipt would render signed-out for someone who had
- * just been charged.
+ * This was `Strict` while the vendor app had no off-site entry point, and the
+ * note here said to change it only when one appeared. One appeared: prepaid
+ * wholesale means a vendor pays Paystack for stock and Paystack returns them to
+ * `/products/purchases/:id`, which is a **cross-site top-level navigation**. A
+ * Strict cookie is not sent on one, so the vendor lands on a login page
+ * immediately after being charged, and the confirmation page they were sent to
+ * cannot read the purchase it exists to confirm.
  *
- * The vendor app has no such return. Nothing off-site navigates into it; a
- * vendor arrives by typing the URL or from a bookmark, and every inbound link
- * worth honouring is same-site. So Strict is available, and Strict is strictly
- * better: it withholds the cookie from cross-site top-level GETs too, which
- * closes the one gap Lax leaves open.
+ * `Lax` still withholds the cookie from every cross-site subresource request and
+ * from cross-site POSTs, which is the CSRF surface that matters. What it gives
+ * up is cross-site top-level GETs — and this app's writes are Server Actions
+ * (POST) behind Next's action-id check, not GETs.
  *
- * If a cross-site entry point is ever added — an email "you have a new order"
- * link counts, since the click originates off-site — this must move to Lax, or
- * that link lands every vendor on a login page. Change it deliberately, with
- * that reason written down, rather than because a session seemed flaky.
+ * Any future off-site entry point — an email "you have a new order" link counts,
+ * since the click originates off-site — needs this to stay `Lax`.
  *
  * ## The cookie NAME is load-bearing in development
  *
@@ -217,9 +217,10 @@ export async function decryptSession(value: string | undefined): Promise<Session
 export const sessionCookieOptions = () =>
   ({
     httpOnly: true,
-    // Strict, not Lax — see the module header. There is no cross-site return
-    // into this app, so the looser value would buy nothing.
-    sameSite: "strict" as const,
+    // Lax, not Strict — see the module header. Paystack returns the vendor to
+    // /products/purchases/:id as a cross-site top-level GET, and Strict would
+    // withhold the session on exactly that hop.
+    sameSite: "lax" as const,
     secure: process.env.NODE_ENV === "production",
     path: "/",
     maxAge: SESSION_MAX_AGE_SECONDS,
