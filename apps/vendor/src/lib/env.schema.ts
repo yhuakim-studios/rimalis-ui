@@ -17,11 +17,13 @@
  *
  * ## Deliberately narrower than the marketplace's copy
  *
- * No `APP_ORIGIN`: the vendor app has no Paystack callback to come back to and
- * no OpenGraph cards to build absolute URLs for. It is a signed-in tool behind a
- * login, so an origin it never interpolates would be a variable that can only
- * ever be wrong. No `MARKETPLACE_FIXTURES` either — there is no public catalogue
- * here to serve from fixtures.
+ * No `APP_ORIGIN`: there are no OpenGraph cards to build absolute URLs for, and
+ * the one absolute URL this app is the subject of — the Paystack return to
+ * `/products/purchases/:id` — is built by the API from its own `VENDOR_APP_URL`,
+ * never by this app. Duplicating it here would give the same fact two sources
+ * that can disagree, and the API's copy is the one Paystack is handed. No
+ * `MARKETPLACE_FIXTURES` either — there is no public catalogue here to serve
+ * from fixtures.
  */
 
 import { z } from "zod";

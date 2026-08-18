@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { shopperMessage } from "@rimalis/api-client";
-import type { UpdateVendorListingBody } from "@rimalis/types";
+import type { StockPurchaseStatus, UpdateVendorListingBody } from "@rimalis/types";
 import { ctxFor, requireApprovedVendor, vendor } from "./auth";
 
 /**
@@ -121,6 +121,56 @@ export async function buyStock(
 
   // Outside any try/catch — see the header. Nothing below this line runs.
   redirect(result.data.authorizationUrl);
+}
+
+/** What the return page's poller needs to know about a purchase. */
+export interface PurchaseCheck {
+  status: StockPurchaseStatus | null;
+  /** The listing the purchase created or topped up. `null` until it succeeds. */
+  vendorProductId: string | null;
+  /** `true` when we could not ask — not when the answer was "still pending". */
+  unreachable: boolean;
+}
+
+/**
+ * Ask the API where a stock purchase got to. Called on a timer by the return page.
+ *
+ * ## Reading is the only safe thing to do here
+ *
+ * This is a `GET`. It must never fall back to `initiateStockPurchase` on a
+ * `PENDING`, however tempting a "retry" looks from the UI: that endpoint has no
+ * idempotency key, so a second call reserves a second batch out of the pool and
+ * opens a second Paystack transaction. A vendor who pays twice has bought twice,
+ * and the stock really is theirs.
+ *
+ * ## `SUCCESS` revalidates, because the listing did not exist a moment ago
+ *
+ * The webhook creates the `VendorProduct` out of band, so `/products` was
+ * rendered and cached before there was anything to show. Without this the vendor
+ * follows the success panel's link and lands on a listings page that still does
+ * not include what they just bought.
+ */
+export async function checkStockPurchase(purchaseId: string): Promise<PurchaseCheck> {
+  const { session } = await requireApprovedVendor(`/products/purchases/${purchaseId}`);
+  const result = await vendor.getStockPurchase(ctxFor(session), purchaseId);
+
+  if (!result.ok) {
+    // A 404 here is "no such purchase for you" and is final, not "not yet" — the
+    // row is written before Paystack is ever called. Anything else transport-
+    // shaped means we could not ask, and the poller stops pestering the API.
+    return { status: null, vendorProductId: null, unreachable: true };
+  }
+
+  if (result.data.status === "SUCCESS") {
+    revalidatePath("/products");
+    revalidatePath("/");
+  }
+
+  return {
+    status: result.data.status,
+    vendorProductId: result.data.vendorProductId,
+    unreachable: false,
+  };
 }
 
 /**
