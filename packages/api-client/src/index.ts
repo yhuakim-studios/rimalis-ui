@@ -18,6 +18,7 @@
  *   payments.ts     Paystack, via the API
  *   vendor.ts       a seller's own store, listings, orders and fulfilment
  *   payouts.ts      settlements — read-only, and deliberately so
+ *   admin.ts        every ADMIN-gated call: the pool, administration, the ledger
  *
  * ---
  *
@@ -55,6 +56,7 @@ export * as orders from "./orders";
 export * as payments from "./payments";
 export * as vendor from "./vendor";
 export * as payouts from "./payouts";
+export * as admin from "./admin";
 
 /** Re-exported so consumers need only one import for the common case. */
 export type { ApiResponse } from "@rimalis/types";

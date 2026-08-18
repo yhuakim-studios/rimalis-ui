@@ -1,4 +1,8 @@
-import type { Category } from "@rimalis/types";
+import type {
+  Category,
+  CreateCategoryBody,
+  UpdateCategoryBody,
+} from "@rimalis/types";
 import { request, type RequestContext } from "./http";
 import type { Result } from "./result";
 
@@ -29,3 +33,74 @@ import type { Result } from "./result";
  */
 export const listAll = (ctx: RequestContext): Promise<Result<Category[]>> =>
   request({ ...ctx, path: "/categories" });
+
+/** `GET /categories/:id`. Public, like the list. */
+export const get = (
+  ctx: RequestContext,
+  id: string,
+): Promise<Result<Category>> =>
+  request({ ...ctx, path: `/categories/${encodeURIComponent(id)}` });
+
+// ---------------------------------------------------------------------------
+// ADMIN WRITES
+//
+// These need an ADMIN token; the reads above need nothing. They live here rather
+// than in `admin.ts` because this module already owns `/categories` and the admin
+// console needs its reads anyway — splitting one resource's calls across two
+// modules to satisfy a naming rule would cost more than the rule is worth.
+//
+// The taxonomy is small, shared and load-bearing: every product hangs off it and
+// the storefront's filter panel is built from it. There is no soft delete here,
+// which is why the two 409s below exist instead.
+// ---------------------------------------------------------------------------
+
+/**
+ * `POST /categories`.
+ *
+ * Omit `parentId` for a top-level category. The slug is generated from the name.
+ */
+export const create = (
+  ctx: RequestContext,
+  body: CreateCategoryBody,
+): Promise<Result<Category>> =>
+  request({ ...ctx, method: "POST", path: "/categories", body });
+
+/**
+ * `PATCH /categories/:id`.
+ *
+ * `parentId: null` promotes to the top level; OMITTING it leaves the parent
+ * unchanged. An empty `<select>` must therefore send nothing rather than an empty
+ * string — the two mean different things and only one of them is what the admin
+ * clicked.
+ *
+ * 400 `CATEGORY_CYCLE` when re-parenting a category under its own descendant.
+ */
+export const update = (
+  ctx: RequestContext,
+  id: string,
+  body: UpdateCategoryBody,
+): Promise<Result<Category>> =>
+  request({
+    ...ctx,
+    method: "PATCH",
+    path: `/categories/${encodeURIComponent(id)}`,
+    body,
+  });
+
+/**
+ * `DELETE /categories/:id` — 204, and a HARD delete.
+ *
+ * There is no `deletedAt` on a category, so this is irreversible. The API refuses
+ * when anything depends on it: 409 `CATEGORY_HAS_PRODUCTS` or
+ * `CATEGORY_HAS_CHILDREN`. Render those as the instruction they are — "reassign
+ * its products first" — rather than as a failure.
+ */
+export const remove = (
+  ctx: RequestContext,
+  id: string,
+): Promise<Result<undefined>> =>
+  request({
+    ...ctx,
+    method: "DELETE",
+    path: `/categories/${encodeURIComponent(id)}`,
+  });
