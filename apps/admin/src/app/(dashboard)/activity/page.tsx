@@ -167,9 +167,11 @@ export default async function ActivityPage({
                       // The reason is the point of this table existing. Three
                       // endpoints used to validate one and then throw it away.
                       <p className="text-caption text-ink-muted">
-                        {/* One expression. Putting the quote entities on their own
-                            lines makes JSX insert a space inside them, rendering
-                            “ reason ”. */}
+                        {/* One template literal rather than `&ldquo;{reason}&rdquo;`.
+                            Both render identically — the separator React emits
+                            between adjacent text nodes is an HTML comment, not a
+                            space — but this keeps the quotes and the text as one
+                            node and one intent. */}
                         {`\u201C${entry.reason}\u201D`}
                       </p>
                     )}

@@ -218,9 +218,11 @@ export default async function OrderDetailPage({
                           <td className="hidden py-2 pr-4 text-right tabular-nums md:table-cell">
                             {/* The rate this line was actually charged, not the
                                 vendor's rate today. */}
-                            {/* One expression, not a value followed by a literal
-                                `%` — JSX turns the newline between them into a
-                                space and renders "10 %". */}
+                            {/* One template literal rather than `{expr}%`. Both
+                                render identically — React separates adjacent text
+                                nodes with an HTML COMMENT, which produces no visible
+                                text — but one node is cheaper than three and the
+                                intent is unambiguous to a reader. */}
                             {`${String(Number((item.commissionRate * 100).toFixed(2)))}%`}
                           </td>
                           <td className="py-2 pr-4 text-right tabular-nums">{formatMoney(item.commissionAmount)}</td>
