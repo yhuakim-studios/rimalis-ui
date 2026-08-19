@@ -1,4 +1,5 @@
 import type {
+  OrderStatus,
   ProductStatus,
   StockPurchaseStatus,
   UserRole,
@@ -34,6 +35,42 @@ import type { StatusPresentation } from "@/lib/format";
  * - `ABANDONED` becomes **"Not completed"**. The vendor did nothing wrong; they
  *   left a checkout. Accusatory copy on a money screen is worth avoiding.
  */
+
+/**
+ * An order's rolled-up status, framed for an admin rather than a picker.
+ *
+ * `lib/format.ts` is a copy of the vendor app's and labels PAID as **"Ready to
+ * pick"** — correct there, because the vendor reading it is the person who will
+ * pick it. An admin picks nothing. On this app the same status means "the money
+ * arrived and no vendor has acknowledged it yet", so the label is "Paid" and the
+ * tone drops from `warning` to `info`: it is not the admin's queue, and a filled
+ * pill on every paid order would spend the one emphasis this palette has on rows
+ * nobody here needs to act on.
+ *
+ * `PENDING` keeps the vendor app's wording verbatim, because "Awaiting payment"
+ * is the one label on that list that is about the money rather than the work — and
+ * getting it wrong is expensive in both apps. It means UNPAID, not "your turn".
+ */
+export function adminOrderStatus(status: OrderStatus | string): StatusPresentation {
+  switch (status) {
+    case "PENDING":
+      return { label: "Awaiting payment", tone: "neutral" };
+    case "PAID":
+      return { label: "Paid", tone: "info" };
+    case "PROCESSING":
+      return { label: "Processing", tone: "info" };
+    case "SHIPPED":
+      return { label: "Shipped", tone: "info" };
+    case "DELIVERED":
+      return { label: "Delivered", tone: "success" };
+    case "CANCELLED":
+      return { label: "Cancelled", tone: "danger" };
+    case "REFUNDED":
+      return { label: "Refunded", tone: "danger" };
+    default:
+      return { label: String(status), tone: "neutral" };
+  }
+}
 
 /**
  * A pool product's lifecycle.
