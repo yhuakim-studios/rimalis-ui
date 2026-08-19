@@ -20,25 +20,25 @@ import { readInteger, readMoney } from "./money-input";
  * commission is charged on the vendor's margin, so a product where cost meets retail
  * leaves a vendor paying commission on a sale that made them nothing.
  *
- * ## `sku` and `stock` cannot be updated, and the type enforces it
+ * ## `sku` is never sent, and cannot be updated
  *
- * SKU is an identity other rows have snapshotted — `OrderItem.productSkuSnapshot`
- * exists precisely so history survives a rename. Stock moves only through
- * `adjustStock`, which demands a reason and writes an audit entry, so there is no
- * path here that changes a quantity without saying why.
+ * The API generates it from the name. Nothing here parses a `sku` field, because
+ * the create form no longer renders one: the value is `@unique`, immutable, and
+ * snapshotted onto every order line, so a typo is permanent and an admin has no way
+ * to know which SKUs are taken before submitting. `OrderItem.productSkuSnapshot`
+ * exists precisely so history survives — which also means editing a SKU would not
+ * correct a single historical record.
+ *
+ * A consequence worth stating: `admin.isSkuTaken` is unreachable from this file.
+ * That branch only fires for a caller that supplied its own SKU, and none here does.
+ *
+ * ## `stock` cannot be updated either
+ *
+ * Stock moves only through `adjustStock`, which demands a reason and writes an audit
+ * entry, so there is no path here that changes a quantity without saying why.
  */
 
 const idSchema = z.object({ productId: z.uuid("That product id is not valid.") });
-
-const skuSchema = z
-  .string()
-  .trim()
-  .min(3, "A SKU needs at least 3 characters.")
-  .max(64, "Keep the SKU under 64 characters.")
-  // Uppercase alphanumerics and dashes: the seed's own convention
-  // (IPHN-13-128-MID), and a SKU with spaces or slashes ends up in URLs and CSV
-  // exports where it needs escaping.
-  .regex(/^[A-Za-z0-9-]+$/, "Letters, numbers and dashes only.");
 
 const nameSchema = z
   .string()
@@ -115,13 +115,11 @@ export async function createProduct(
 ): Promise<FormState> {
   const basics = z
     .object({
-      sku: skuSchema,
       name: nameSchema,
       description: z.string().trim().max(4000).optional(),
       categoryId: z.uuid().optional(),
     })
     .safeParse({
-      sku: formData.get("sku"),
       name: formData.get("name"),
       description: String(formData.get("description") ?? "").trim() || undefined,
       categoryId: String(formData.get("categoryId") ?? "").trim() || undefined,
@@ -150,7 +148,6 @@ export async function createProduct(
 
   const { session } = await requireAdmin("/products/new");
   const result = await admin.createProduct(ctxFor(session), {
-    sku: basics.data.sku,
     name: basics.data.name,
     ...(basics.data.description !== undefined
       ? { description: basics.data.description }
@@ -164,18 +161,9 @@ export async function createProduct(
     ...(lowStockAt !== undefined ? { lowStockAt } : {}),
   });
 
-  if (!result.ok) {
-    if (admin.isSkuTaken(result.error)) {
-      return {
-        fieldErrors: {
-          // Naming the soft-delete case: the unique constraint does not care about
-          // `deletedAt`, so this fires for a product an admin cannot see.
-          sku: "That SKU is already in use — possibly by a deleted product. Search with 'Include deleted' on before creating a new one.",
-        },
-      };
-    }
-    return { error: shopperMessage(result.error) };
-  }
+  // No `isSkuTaken` branch: nothing above sends a `sku`, so the API generates one
+  // and settles its own collisions. See the module header.
+  if (!result.ok) return { error: shopperMessage(result.error) };
 
   revalidateProduct(result.data.id);
   // Straight to the edit page: a new product is DRAFT with no images, and cannot be

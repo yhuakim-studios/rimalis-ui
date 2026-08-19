@@ -108,9 +108,14 @@ export const getProduct = (
 /**
  * `POST /admin/products` — 201, status DRAFT.
  *
- * Money goes in as a NUMBER here and comes back as a decimal string. 409
- * `SKU_TAKEN` if the SKU exists — including on a soft-deleted product, since the
- * unique constraint does not care about `deletedAt`. Offer restore, not a retry.
+ * Money goes in as a NUMBER here and comes back as a decimal string.
+ *
+ * Omit `body.sku` — the API generates one. `SKU_TAKEN` is therefore only
+ * reachable when the caller supplied a SKU of its own, and the admin console
+ * never does, so `isSkuTaken` is dead on that screen by design rather than by
+ * accident. If you do supply one and it clashes, the product it clashes with may
+ * be SOFT-DELETED: the unique constraint does not care about `deletedAt`, so
+ * offer restore rather than a retry.
  */
 export const createProduct = (
   ctx: RequestContext,
@@ -683,7 +688,12 @@ const isHttp = (error: ApiError, status: number, code?: string): boolean =>
   error.status === status &&
   (code === undefined || error.code === code);
 
-/** The SKU exists — possibly on a SOFT-DELETED product. Offer restore. */
+/**
+ * The SKU exists — possibly on a SOFT-DELETED product. Offer restore.
+ *
+ * Only reachable when `createProduct` was given an explicit `body.sku`;
+ * generated SKUs settle their own collisions server-side.
+ */
 export const isSkuTaken = (error: ApiError): boolean =>
   isHttp(error, 409, "SKU_TAKEN");
 

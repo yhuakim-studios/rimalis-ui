@@ -21,6 +21,14 @@ export interface CategoryOption {
  * product every vendor loses money on. So each field says who pays it, and the
  * hint under cost names the consequence rather than the rule.
  *
+ * ## No SKU field here
+ *
+ * The API generates one from the name. It is `@unique`, immutable, and snapshotted
+ * onto every order line, so a typo made once on this form is permanent and turns up
+ * in a shopper's receipt months later — and the admin had no way to know which
+ * SKUs were already taken before submitting. The generated one appears on the edit
+ * screen this form redirects to.
+ *
  * ## No image field here
  *
  * Images need a product id to upload against — the object path is
@@ -35,23 +43,14 @@ export function ProductForm({ categories }: { categories: readonly CategoryOptio
     <form action={formAction} className="flex flex-col gap-6">
       {state.error && <FormBanner tone="error">{state.error}</FormBanner>}
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Input
-          label="SKU"
-          name="sku"
-          required
-          placeholder="IPHN-13-128-MID"
-          hint="Letters, numbers and dashes. Cannot be changed later — orders snapshot it."
-          error={state.fieldErrors?.["sku"]}
-        />
-        <Input
-          label="Name"
-          name="name"
-          required
-          placeholder="Apple iPhone 13 128GB"
-          error={state.fieldErrors?.["name"]}
-        />
-      </div>
+      <Input
+        label="Name"
+        name="name"
+        required
+        placeholder="Apple iPhone 13 128GB"
+        hint="A SKU is generated from this name and shown on the next screen."
+        error={state.fieldErrors?.["name"]}
+      />
 
       <Textarea
         label="Description"

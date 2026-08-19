@@ -52,7 +52,8 @@ export function ProductMetaForm({
             {product.sku}
           </p>
           <span className="text-meta text-ink-subtle">
-            Fixed. Orders snapshot it, so a change would rewrite history.
+            Generated from the name at creation. Fixed — orders snapshot it, so a
+            change would rewrite history.
           </span>
         </div>
         <Input

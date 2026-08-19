@@ -148,7 +148,20 @@ export interface ListPoolProductsQuery {
  * a vendor paying commission on a sale that made them nothing.
  */
 export interface CreatePoolProductBody {
-  sku: string;
+  /**
+   * Omit this. The API generates a SKU from the name, and the admin console does
+   * not render a field for it.
+   *
+   * It stays on the type for the one case that needs it: mirroring a row in a
+   * supplier's own catalogue, where the SKU has to match a value we did not
+   * choose. Supplied, it is used verbatim and a clash is a `409 SKU_TAKEN` —
+   * quietly substituting a generated SKU would destroy the correspondence that
+   * was the entire point of sending one.
+   *
+   * There is no way to change it afterwards (see {@link UpdatePoolProductBody}),
+   * so a typo here is permanent and will surface in a shopper's receipt.
+   */
+  sku?: string;
   name: string;
   description?: string;
   /** Naira, as a JSON number. */
@@ -166,7 +179,9 @@ export interface CreatePoolProductBody {
  * `PATCH /admin/products/:id`.
  *
  * `sku` and `stock` are absent on purpose, and the API rejects both. SKU is an
- * identity other rows have snapshotted; stock moves only through
+ * identity other rows have snapshotted — and since every `OrderItem` carries its
+ * own copy, editing it here would not correct one historical record anyway;
+ * stock moves only through
  * `POST /:id/stock/adjust`, which demands a reason and writes an audit entry.
  *
  * `categoryId: null` clears the category. Omitting it leaves it unchanged — the
