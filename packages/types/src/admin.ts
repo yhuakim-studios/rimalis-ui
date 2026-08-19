@@ -174,8 +174,13 @@ export interface CreatePoolProductBody {
  * `""`.
  */
 export type UpdatePoolProductBody = Partial<
-  Omit<CreatePoolProductBody, "sku" | "stock">
+  // `categoryId` is omitted here and redeclared below. An intersection would NOT
+  // widen it: `{ categoryId?: Uuid } & { categoryId?: Uuid | null }` resolves to
+  // `Uuid | undefined`, because an intersection narrows. So `null` — the value that
+  // clears the category — would be unassignable, and the mistake reads as correct.
+  Omit<CreatePoolProductBody, "sku" | "stock" | "categoryId">
 > & {
+  /** `null` clears the category. Omitting it leaves the current one unchanged. */
   categoryId?: Uuid | null;
 };
 
