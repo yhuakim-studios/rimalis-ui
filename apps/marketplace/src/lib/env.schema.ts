@@ -115,6 +115,17 @@ export const envSchema = z.object({
   APP_ORIGIN: origin,
 
   /**
+   * The VENDOR dashboard's public origin — where "Sell on Rimalis" points.
+   *
+   * A separate deployment on its own origin, so this cannot be a relative href
+   * and cannot be derived from the request. Required at runtime and optional at
+   * build time, exactly like `APP_ORIGIN`: on Cloudflare it is a `vars` entry
+   * injected into the isolate at request time, and requiring it at build time is
+   * the mistake documented in `buildEnvSchema` below.
+   */
+  VENDOR_ORIGIN: origin,
+
+  /**
    * Serve the catalogue from local fixtures instead of the API. A development
    * escape hatch only — see the `NODE_ENV` guard at the single call site.
    */
@@ -150,6 +161,7 @@ export type Env = z.infer<typeof envSchema>;
 export const buildEnvSchema = envSchema.extend({
   SESSION_SECRET: sessionSecret.optional(),
   APP_ORIGIN: origin.optional(),
+  VENDOR_ORIGIN: origin.optional(),
 });
 
 export type BuildEnv = z.infer<typeof buildEnvSchema>;

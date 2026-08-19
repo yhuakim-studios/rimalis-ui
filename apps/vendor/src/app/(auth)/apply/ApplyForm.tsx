@@ -56,6 +56,26 @@ export function ApplyForm() {
         error={state.fieldErrors?.["cacNumber"]}
       />
 
+      {/* The only place a referral can be captured. The API attaches the code
+          here and nowhere else — miss it and the recruit is permanently
+          unattributed, since a reapplication cannot re-point it either.
+
+          `autoCapitalize="characters"` and `spellCheck={false}`: codes are
+          uppercase Crockford base32 and get typed on phones, where autocorrect
+          turns `7K2QX9` into something else entirely. The API normalises case
+          anyway, so this is about the applicant seeing what they meant to type. */}
+      <Input
+        label="Referral code"
+        name="referralCode"
+        maxLength={32}
+        autoCapitalize="characters"
+        autoCorrect="off"
+        spellCheck={false}
+        placeholder="RIM-7K2QX9"
+        hint="Optional. If another Rimalis seller invited you, enter their code so they get credit."
+        error={state.fieldErrors?.["referralCode"]}
+      />
+
       <SubmitButton fullWidth size="lg">
         Send application
       </SubmitButton>

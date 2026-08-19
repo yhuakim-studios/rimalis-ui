@@ -56,7 +56,14 @@
     // just been charged to a domain that does not serve /checkout/callback. It
     // must also match APP_URL on rimalis-api, which builds every emailed link
     // from its own copy.
-    "APP_ORIGIN": "https://shop.example.com"
+    "APP_ORIGIN": "https://shop.example.com",
+
+    // TODO(domain): placeholder. The vendor dashboard's origin, used for the
+    // footer's "Sell on Rimalis" link. Unset, that link is simply omitted rather
+    // than rendering dead — see `vendorOrigin()` in src/lib/env.ts — so a wrong
+    // value here is worse than no value: it sends would-be sellers to a domain
+    // that answers nothing, with no error anywhere to notice it.
+    "VENDOR_ORIGIN": "https://sell.example.com"
   }
 
   // ISR / incremental cache. The adapter needs an R2 (or KV) binding to store

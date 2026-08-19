@@ -63,6 +63,21 @@ const applySchema = z.object({
   description: z.string().max(2000).optional(),
   businessName: z.string().max(200).optional(),
   cacNumber: z.string().max(50).optional(),
+  /**
+   * Bounds only — no format check, on purpose.
+   *
+   * The API's `normaliseReferralCode` tolerates a missing `RIM-` prefix and the
+   * wrong case, so a local regex would reject codes the API would have accepted.
+   * More importantly it would report "malformed" for a code that is merely
+   * *unknown*, which sends the applicant to fix their typing instead of to check
+   * the code with whoever gave it to them. Let the API decide; it answers
+   * INVALID_REFERRAL_CODE.
+   */
+  referralCode: z
+    .string()
+    .min(3, "A referral code is at least 3 characters.")
+    .max(32, "That does not look like a referral code.")
+    .optional(),
 });
 
 /** Turns a Zod failure into per-field copy the form can render inline. */
@@ -169,6 +184,8 @@ export async function applyAsVendor(
     description: String(formData.get("description") ?? "").trim() || undefined,
     businessName: String(formData.get("businessName") ?? "").trim() || undefined,
     cacNumber: String(formData.get("cacNumber") ?? "").trim() || undefined,
+    // Sent as typed apart from trimming — see the schema note.
+    referralCode: String(formData.get("referralCode") ?? "").trim() || undefined,
   });
   if (!parsed.success) return { fieldErrors: fieldErrorsOf(parsed.error) };
 
@@ -180,6 +197,25 @@ export async function applyAsVendor(
     if (vendor.isVendorProfileExists(error)) {
       // 409 — an application is already on file. The gate knows which state.
       redirect("/pending");
+    }
+    // Both referral failures belong on the FIELD. The rest of the form is fine,
+    // and a form-level banner would have the applicant re-reading their store
+    // name. Checked before the generic 400 branch below, which cannot tell which
+    // field a validation failure was about.
+    if (vendor.isInvalidReferralCode(error)) {
+      return {
+        fieldErrors: {
+          referralCode:
+            "We don't recognise that code. Check it with whoever gave it to you, or leave it blank.",
+        },
+      };
+    }
+    if (vendor.isSelfReferral(error)) {
+      return {
+        fieldErrors: {
+          referralCode: "That's your own code — you can't refer yourself.",
+        },
+      };
     }
     if (error.kind === "http" && error.status === 400) {
       return { error: error.message, ...(error.details ? {} : {}) };

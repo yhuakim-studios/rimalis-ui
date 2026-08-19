@@ -137,6 +137,26 @@ export interface ApplyAsVendorBody {
   cacNumber?: string;
   logoUrl?: string;
   bannerUrl?: string;
+  /**
+   * The referral code of the vendor who recruited this applicant.
+   *
+   * **This is the only moment it can be captured.** The API attaches it here and
+   * nowhere else, deliberately: a code attached to a shopper who never applies is
+   * attribution nobody can act on. Miss it here and the recruit is permanently
+   * unattributed — a reapplication cannot re-point it either, so there is no
+   * second chance.
+   *
+   * Send it as typed. `normaliseReferralCode` on the API tolerates a missing
+   * `RIM-` prefix and the wrong case, so do not "clean it up" client-side; an
+   * unrecognised code must come back as `INVALID_REFERRAL_CODE` from the service
+   * rather than be rejected by a local regex, so the applicant is told the code is
+   * unknown rather than malformed.
+   *
+   * An invalid code fails the WHOLE application (400) rather than being dropped.
+   * That is intentional — silently ignoring it would leave the applicant believing
+   * they used it and the referrer waiting for a count that never moves.
+   */
+  referralCode?: string;
 }
 
 /** `PATCH /vendors/me`. Every field optional; send only what changed. */

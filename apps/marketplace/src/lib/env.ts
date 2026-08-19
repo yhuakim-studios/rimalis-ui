@@ -89,6 +89,22 @@ export function appOrigin(): string {
 }
 
 /**
+ * The vendor dashboard's origin, or `undefined` if this environment has none.
+ *
+ * Returns rather than throws, unlike `appOrigin()` above, and the difference is
+ * deliberate. `APP_ORIGIN` is interpolated into a Paystack `callbackUrl`: absent,
+ * a paying customer lands somewhere wrong, so failing loudly is right. This one
+ * only decides whether a "Sell on Rimalis" link renders — and it renders in the
+ * FOOTER, on every page. Throwing would turn one missing variable into a 500 on
+ * the entire storefront, which is far worse than the link quietly not appearing.
+ *
+ * So callers must handle `undefined` by omitting the link. See `Footer`.
+ */
+export function vendorOrigin(): string | undefined {
+  return env.VENDOR_ORIGIN;
+}
+
+/**
  * Config for `@rimalis/api-client`, assembled once from the same source.
  *
  * Here rather than at each call site so `baseUrl`/`basePath` cannot be passed

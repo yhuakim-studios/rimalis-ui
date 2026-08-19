@@ -4,6 +4,7 @@ import { Headphones, Heart, ShoppingBag, ShoppingCart, User } from "lucide-react
 import { Container } from "./Container";
 import { SearchBox } from "./SearchBox";
 import { getSessionUser } from "@/lib/auth";
+import { vendorOrigin } from "@/lib/env";
 import { cartCount, readCart } from "@/lib/cart";
 import { readWishlist } from "@/lib/wishlist";
 
@@ -197,7 +198,25 @@ function HeaderLink({
   );
 }
 
+/**
+ * The footer, and the only place the storefront mentions that you can SELL here.
+ *
+ * Before this, nothing on the marketplace linked to the vendor app at all: the
+ * apply flow existed, was complete, and was reachable only by knowing the vendor
+ * app's URL. Every seller had to arrive by word of mouth.
+ *
+ * A plain `<a>`, not `next/link`: the vendor dashboard is a separate deployment on
+ * its own origin, so there is no route to prefetch and `<Link>` would only add
+ * client-side machinery to a full page load. `rel="noreferrer"` is omitted on
+ * purpose — it is the same platform, and the referrer is useful to it.
+ *
+ * The whole column disappears when `VENDOR_ORIGIN` is unset rather than rendering
+ * a dead link or throwing. See `vendorOrigin()` for why absence must not 500 a
+ * page that every route renders.
+ */
 export function Footer() {
+  const vendorHref = vendorOrigin();
+
   return (
     <footer className="mt-auto border-t border-divider bg-surface">
       <Container width="shell" className="py-12">
@@ -234,6 +253,26 @@ export function Footer() {
             <FooterLink href="/account/orders">Orders</FooterLink>
             <FooterLink href="/account/addresses">Addresses</FooterLink>
             <FooterLink href="/wishlist">Saved items</FooterLink>
+
+            {vendorHref !== undefined && (
+              <>
+                <h2 className="mt-5 text-caption font-semibold uppercase tracking-wider text-ink">
+                  Sell
+                </h2>
+                <a
+                  href={`${vendorHref}/apply`}
+                  className="text-caption text-ink-muted hover:text-ink"
+                >
+                  Sell on Rimalis
+                </a>
+                <a
+                  href={vendorHref}
+                  className="text-caption text-ink-muted hover:text-ink"
+                >
+                  Seller sign in
+                </a>
+              </>
+            )}
           </div>
         </div>
       </Container>
