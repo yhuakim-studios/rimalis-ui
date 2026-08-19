@@ -9,6 +9,7 @@ export { FilterBar, type FilterBarProps, type FilterField } from "./FilterBar";
 export { StatusTabs, type StatusTab, type StatusTabsProps } from "./StatusTabs";
 export { ConfirmAction, type ConfirmActionProps } from "./ConfirmAction";
 export { CommissionRateForm } from "./CommissionRateForm";
+export { RoleForm } from "./RoleForm";
 export {
   accountState,
   adminOrderStatus,
