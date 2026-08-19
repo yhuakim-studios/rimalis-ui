@@ -1,0 +1,4 @@
+
+# Scratch harness for local verification; never a real test.
+.mint.test.ts
+src/lib/.mint.test.ts

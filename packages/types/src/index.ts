@@ -33,6 +33,7 @@
  *   auth.ts      accounts, sessions, addresses
  *   commerce.ts  orders and payments
  *   vendor.ts    a seller's own store, listings, orders and settlements
+ *   admin.ts     the product pool, administration, the ledger and the trail
  *
  * `auth.ts` and `commerce.ts` were transcribed the same way as `catalog.ts` —
  * document first, live response second — and the same class of documentation bug
@@ -47,3 +48,4 @@ export * from "./catalog";
 export * from "./auth";
 export * from "./commerce";
 export * from "./vendor";
+export * from "./admin";
