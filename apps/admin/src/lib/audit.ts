@@ -67,14 +67,27 @@ export function describeAction(action: string): string {
   const known = PHRASES[action];
   if (known !== undefined) return known;
 
-  const [entity, ...rest] = action.split(".");
-  const verb = rest.join(" ").replace(/_/g, " ");
-  if (verb === "" || entity === undefined) {
-    // Not even dotted. Show it verbatim rather than mangling it — a truthful odd
-    // string beats a confident wrong sentence.
-    return action;
-  }
-  return `${verb} the ${entity.replace(/_/g, " ")}`;
+  const trimmed = action.trim();
+
+  // A blank action should be impossible — the column is NOT NULL and every writer
+  // passes a literal. But this function's entire job is to degrade gracefully for
+  // values it was not told about, and returning "" would render a row as the
+  // actor's name and nothing else, which reads as a broken row rather than an
+  // unknown one. Say the only thing that is certainly true.
+  if (trimmed === "") return "made a change";
+
+  const [entity, ...rest] = trimmed.split(".");
+  const verb = rest.join(" ").replace(/_/g, " ").trim();
+
+  // Not dotted (`somethinghappened`). Show it verbatim rather than mangling it — a
+  // truthful odd string beats a confident wrong sentence.
+  if (verb === "") return trimmed;
+
+  // Dotted but with no entity half (`.issued`). The verb alone is still a sentence.
+  const subject = (entity ?? "").replace(/_/g, " ").trim();
+  if (subject === "") return verb;
+
+  return `${verb} the ${subject}`;
 }
 
 /** The acting person's name, falling back to their email, then to their id. */
