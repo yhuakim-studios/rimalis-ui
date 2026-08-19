@@ -8,17 +8,23 @@
     "start": "next start --port 5175",
     "typecheck": "tsc --noEmit",
     "clean": "chmod -R u+w .open-next 2>/dev/null; rm -rf .next .open-next .turbo dist",
-    "cf:build": "opennextjs-cloudflare build",
-    "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
-    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy"
+    "cf:clean": "chmod -R u+w .open-next 2>/dev/null; rm -rf .open-next",
+    "cf:build": "pnpm cf:clean && opennextjs-cloudflare build",
+    "preview": "pnpm cf:build && opennextjs-cloudflare preview",
+    "cf:deploy": "pnpm cf:build && wrangler deploy",
+    "test": "vitest run"
   },
   "dependencies": {
     "@rimalis/api-client": "workspace:*",
     "@rimalis/types": "workspace:*",
     "@rimalis/ui": "workspace:*",
+    "jose": "^6.2.8",
+    "lucide-react": "^1.28.0",
     "next": "^16.2.12",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "server-only": "^0.0.1",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@rimalis/config": "workspace:*",
@@ -29,6 +35,7 @@
     "@types/react-dom": "^19.2.0",
     "tailwindcss": "^4.3.3",
     "typescript": "^5.9.3",
-    "wrangler": "^4.118.0"
+    "wrangler": "^4.118.0",
+    "vitest": "^4.1.10"
   }
 }

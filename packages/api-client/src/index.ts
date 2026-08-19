@@ -12,8 +12,13 @@
  *   result.ts       the `Result` union every method returns
  *   http.ts         the ONE `fetch` — timeout, retry policy, envelope branch
  *   marketplace.ts  the public catalogue
- *
- * `auth`, `orders`, `payments` and `users` land with the phases that use them.
+ *   auth.ts         credentials and sessions
+ *   users.ts        the signed-in shopper's profile and addresses
+ *   orders.ts       checkout and order history
+ *   payments.ts     Paystack, via the API
+ *   vendor.ts       a seller's own store, listings, orders and fulfilment
+ *   payouts.ts      settlements — read-only, and deliberately so
+ *   admin.ts        every ADMIN-gated call: the pool, administration, the ledger
  *
  * ---
  *
@@ -44,6 +49,14 @@ export * from "./config";
 export * from "./result";
 export * from "./http";
 export * as marketplace from "./marketplace";
+export * as categories from "./categories";
+export * as auth from "./auth";
+export * as users from "./users";
+export * as orders from "./orders";
+export * as payments from "./payments";
+export * as vendor from "./vendor";
+export * as payouts from "./payouts";
+export * as admin from "./admin";
 
 /** Re-exported so consumers need only one import for the common case. */
 export type { ApiResponse } from "@rimalis/types";

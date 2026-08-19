@@ -14,10 +14,10 @@
     "test": "turbo test",
     "clean": "turbo clean && rm -rf node_modules",
     "preview": "turbo preview",
-    "deploy": "turbo deploy"
+    "cf:deploy": "turbo cf:deploy"
   },
   "devDependencies": {
-    "turbo": "^2.10.8",
+    "turbo": "^2.10.11",
     "typescript": "^5.9.3"
   }
 }

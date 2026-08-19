@@ -5,8 +5,10 @@ import { ChevronRight, Store } from "lucide-react";
 import { Container } from "@/components/layout";
 import { ErrorState } from "@/components/feedback";
 import { AttributeList, Gallery } from "@/components/catalogue";
-import { Badge, Button, ButtonLink } from "@/components/primitives";
+import { Badge, ButtonLink } from "@/components/primitives";
+import { AddToCartForm, SaveButton } from "@/components/cart";
 import { catalogue, publicCtx } from "@/lib/api";
+import { readWishlist } from "@/lib/wishlist";
 import { formatMoney } from "@/lib/money";
 import { availabilityOf, primaryImage } from "@/lib/listing";
 
@@ -121,7 +123,12 @@ export default async function ProductPage({
   params: Promise<{ listingId: string }>;
 }) {
   const { listingId } = await params;
-  const result = await catalogue.getListing(publicCtx(), listingId);
+  const [result, saved] = await Promise.all([
+    catalogue.getListing(publicCtx(), listingId),
+    // The saved-items cookie, so the heart renders in its true state in the
+    // first byte rather than flipping after hydration.
+    readWishlist(),
+  ]);
 
   if (!result.ok) {
     // See the header: 404 and 400 both mean "no such thing at this URL", and a
@@ -194,9 +201,11 @@ export default async function ProductPage({
           </div>
 
           <div className="flex flex-col gap-2">
-            {/* `effectivePrice`, never `basePrice` or `vendorPrice` — those are
-                the inputs; this is the resolved answer. */}
-            <p className="text-display text-ink">{formatMoney(listing.effectivePrice)}</p>
+            {/* `product.retailPrice` — one price per product, the same from every
+                vendor. Never `costPrice`: that is this vendor's wholesale cost. */}
+            <p className="text-display text-ink">
+              {formatMoney(listing.product.retailPrice)}
+            </p>
 
             {availability.kind === "out_of_stock" ? (
               <Badge tone="danger">Out of stock</Badge>
@@ -208,18 +217,22 @@ export default async function ProductPage({
           </div>
 
           {/*
-            Phase 3 replaces this with <AddToCartForm>, which needs the cart
-            cookie and a Server Action. Disabled rather than absent so the layout
-            it will occupy is already correct — and honest about why: a button
-            that silently does nothing is worse than one that says it is coming.
+            `available` is derived here rather than inside the form, so the one
+            place that knows how `ownedStock` and `isActive` combine stays
+            `lib/listing.ts`. The form takes a number and a ceiling; it does not
+            re-derive availability and cannot disagree with the badge above it.
           */}
-          <div className="flex flex-col gap-3">
-            <Button size="lg" fullWidth disabled>
-              {availability.kind === "out_of_stock" ? "Out of stock" : "Add to cart"}
-            </Button>
-            <p className="text-caption text-ink-muted">
-              Checkout arrives in the next phase of this build.
-            </p>
+          <div className="flex flex-wrap items-start gap-3">
+            <AddToCartForm
+              listingId={listing.id}
+              available={availability.kind === "out_of_stock" ? 0 : availability.available}
+              productName={product.name}
+            />
+            <SaveButton
+              listingId={listing.id}
+              productName={product.name}
+              saved={saved.includes(listing.id)}
+            />
           </div>
 
           {product.description && (

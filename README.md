@@ -49,10 +49,41 @@ Cloudflare, per app:
 
 ```bash
 cd apps/marketplace
+pnpm cf:clean     # wipe .open-next   (cf:build runs this for you)
 pnpm cf:build     # next build -> OpenNext -> .open-next/worker.js
 pnpm preview      # build + run under workerd locally  (see caveat below)
-pnpm deploy       # build + wrangler deploy            (needs `wrangler login`)
+pnpm cf:deploy    # build + wrangler deploy            (needs `wrangler login`)
 ```
+
+> **`cf:build` wipes `.open-next` first, on purpose.** The adapter clears its
+> own output with a recursive delete that reads a directory, unlinks what it
+> found, then `rmdir`s. On macOS, Finder writes a `.DS_Store` into any folder it
+> has looked at — including one *inside* `.open-next` — and if that lands
+> between the read and the `rmdir`, the build dies with
+> `ENOTEMPTY: directory not empty, rmdir '.../server-functions/default/node_modules'`.
+> A second build over a previous one is what triggers it, so it looks
+> intermittent and looks like a corrupt build rather than a stray metadata file.
+> `rm -rf` does not have the race. The `chmod -R u+w` in front is for the
+> read-only files the adapter copies out of the pnpm store.
+
+> **`cf:deploy` calls `wrangler deploy`, not `opennextjs-cloudflare deploy`.**
+> The adapter's own deploy command calls `getPlatformProxy()` first, which boots
+> **miniflare/workerd** just to read the environment — and workerd requires
+> macOS 13.5+ (see the caveat below), so on this machine it dies *after* a full
+> successful build with `Unsupported macOS version`. `wrangler deploy` does the
+> upload without workerd. It is also exactly what the Workers Builds pipeline in
+> step 3 runs, so local and CI now take the same path. Revisit only if ISR is
+> enabled — populating the incremental cache is the one thing the adapter's
+> deploy adds.
+
+> **The deploy script is `cf:deploy`, not `deploy`, and that is not cosmetic.**
+> `pnpm deploy` is a **built-in pnpm command** (deploy a workspace package to a
+> directory), and a built-in always shadows a same-named script. Naming it
+> `deploy` means `pnpm deploy` never runs it — it exits with
+> `ERR_PNPM_NOTHING_TO_DEPLOY  No project was selected for deployment`, which
+> reads like a workspace misconfiguration rather than "that script was never
+> called." Do not rename it back. (`pnpm run deploy` would have worked, but a
+> name that only works one way is a trap.)
 
 ## Environment
 
@@ -81,7 +112,11 @@ security model.
 Not yet connected — no Cloudflare account is wired up. When you do it:
 
 1. **Create the Worker per app.** From `apps/<app>`, `wrangler login` then
-   `pnpm deploy`. Names come from `wrangler.jsonc` (`rimalis-shop`, etc.).
+   `pnpm cf:deploy`. Names come from `wrangler.jsonc` (`rimalis-shop`, etc.).
+   `wrangler login` is interactive and opens a browser; until it has run,
+   `cf:deploy` builds fine and then fails at upload with
+   `You are not authenticated`. For CI, set `CLOUDFLARE_API_TOKEN` (and
+   `CLOUDFLARE_ACCOUNT_ID`) instead of logging in.
 2. **Add the custom domain.** Uncomment the `routes` block in that app's
    `wrangler.jsonc` once the zone exists in the account, and replace
    `example.com`.

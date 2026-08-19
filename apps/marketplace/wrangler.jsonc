@@ -42,9 +42,12 @@
   //
   // `next.config.ts` validates the environment at build time, which catches an
   // incomplete .env.local. It CANNOT catch a secret that was never uploaded to
-  // Cloudflare, because a local build has no view of the account. That check is
-  // a deploy step, not a build step: after the first deploy of an environment,
-  // confirm `npx wrangler secret list` shows SESSION_SECRET.
+  // Cloudflare, because a local build has no view of the account — and as of
+  // the build/runtime schema split it no longer tries: SESSION_SECRET is
+  // optional at build time precisely because a Workers Build container does not
+  // have it. So this is a deploy step, not a build step: after the first deploy
+  // of an environment, confirm `npx wrangler secret list` shows SESSION_SECRET.
+  // Nothing before that moment can tell you it is missing.
   "vars": {
     "API_BASE_PATH": "/api/v1",
 

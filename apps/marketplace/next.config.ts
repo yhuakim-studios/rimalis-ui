@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { NextConfig } from "next";
-import { parseEnv } from "./src/lib/env.schema";
+import { parseBuildEnv } from "./src/lib/env.schema";
 
 /*
  * ⚠️ NEVER RUN `next build` WHILE `next dev` IS SERVING THIS APP.
@@ -65,8 +65,15 @@ function workspaceRoot(): string {
  * set with `wrangler secret put` and are not visible to a local build. So this
  * catches "the template is incomplete", which is the common mistake; it cannot
  * catch "the secret was never uploaded". Guard that with a deploy checklist.
+ *
+ * `parseBuildEnv`, NOT `parseEnv`: the full contract includes `SESSION_SECRET`
+ * and `APP_ORIGIN`, which a Cloudflare build container does not have and does
+ * not need — they are a Worker secret and a `vars` entry, both injected at
+ * request time. Demanding them here failed every Workers Build with
+ * `SESSION_SECRET: missing`. Values that ARE present are still fully validated,
+ * so a malformed local `.env.local` still fails the build. See env.schema.ts.
  */
-parseEnv(process.env);
+parseBuildEnv(process.env);
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,

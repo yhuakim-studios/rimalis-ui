@@ -4,7 +4,13 @@ import { Container, Section } from "@/components/layout";
 import { EmptyState, ErrorState } from "@/components/feedback";
 import { FilterPanel, Pagination, ProductGrid, SortSelect } from "@/components/catalogue";
 import { catalogue, publicCtx } from "@/lib/api";
-import { PAGE_SIZE, parseCatalogueParams, toApiQuery, type RawSearchParams } from "@/lib/search-params";
+import {
+  PAGE_SIZE,
+  buildCatalogueQuery,
+  parseCatalogueParams,
+  toApiQuery,
+  type RawSearchParams,
+} from "@/lib/search-params";
 
 /**
  * The catalogue.
@@ -170,7 +176,11 @@ export default async function ProductsPage({
           ) : (
             <>
               <ProductGrid listings={items} />
-              <Pagination meta={pagination} params={params} basePath="/products" />
+              <Pagination
+                page={params.page}
+                totalPages={pagination.totalPages}
+                hrefForPage={(page) => `/products${buildCatalogueQuery({ ...params, page })}`}
+              />
             </>
           )}
         </div>

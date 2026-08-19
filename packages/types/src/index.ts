@@ -26,14 +26,26 @@
  * empty. None of that survives codegen, and all of it is what a caller gets
  * wrong.
  *
- * ## What is deliberately absent
+ * ## Layout
  *
- * The `auth`, `user`, `order` and `payment` DTOs land with the phases that use
- * them (2, 4, 5, 6). Writing them now would mean guessing nullability for
- * endpoints nothing calls yet, and a wrong guess is worse than an absence: an
- * absence is a compile error today, a wrong `| null` is a crash in production
- * months from now.
+ *   common.ts    the envelope, `Money`, pagination — the stable core
+ *   catalog.ts   categories, products, listings, storefronts (public)
+ *   auth.ts      accounts, sessions, addresses
+ *   commerce.ts  orders and payments
+ *   vendor.ts    a seller's own store, listings, orders and settlements
+ *   admin.ts     the product pool, administration, the ledger and the trail
+ *
+ * `auth.ts` and `commerce.ts` were transcribed the same way as `catalog.ts` —
+ * document first, live response second — and the same class of documentation bug
+ * turned up again: `GET /users/me/addresses` is declared as returning a single
+ * `Address` where it returns an array (see `listAddresses` in the API's own
+ * controller, which passes the array straight through). The type here follows
+ * the code, not the document.
  */
 
 export * from "./common";
 export * from "./catalog";
+export * from "./auth";
+export * from "./commerce";
+export * from "./vendor";
+export * from "./admin";
