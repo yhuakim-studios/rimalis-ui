@@ -46,7 +46,15 @@ export function Header({ email }: { email: string }) {
               `truncate` because an email is user-supplied and unbounded, which
               would otherwise push the sign-out control off a 360px viewport.
             */}
-            <span className="truncate text-meta text-ink-subtle">{email}</span>
+            {/*
+              Can be empty for one discarded render: the layout reads the session
+              without redirecting, so when there is none the page's own guard
+              redirects and this output is thrown away. Rendering an empty span
+              rather than "undefined" keeps that invisible.
+            */}
+            {email !== "" && (
+              <span className="truncate text-meta text-ink-subtle">{email}</span>
+            )}
           </span>
         </Link>
 

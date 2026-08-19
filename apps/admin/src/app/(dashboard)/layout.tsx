@@ -1,43 +1,61 @@
+import { redirect } from "next/navigation";
 import { Header, SideNav, TopNav } from "@/components/layout";
-import { requireAdmin } from "@/lib/auth";
+import { getSession } from "@/lib/auth";
 
 /**
- * The signed-in shell, and the gate.
+ * The signed-in shell.
  *
- * ## Every page in this group is guarded by this call — and guards itself again
+ * ## Why this does NOT call `requireAdmin()`, and every page does
  *
- * `requireAdmin()` runs before any child renders and either returns an ADMIN
- * identity or redirects: to `/login` with no session, to `/api/session/refresh`
- * on an aged token, to `/not-authorised` for a valid session that is not an
- * admin's. Putting it in the layout means a new route under `(dashboard)` is
- * protected by existing, which is the right default — the failure mode of the
- * alternative is a page someone forgot to guard.
+ * It did, and it cost every deep link. A layout in the App Router **cannot learn the
+ * current pathname** — there is no `usePathname` on the server, `headers()` carries
+ * no path (verified: only host, user-agent, accept, cookie and the x-forwarded-*
+ * set), and the one mechanism that would provide it is `middleware.ts`, which this
+ * app must never have because the edge runtime inlines env at build time and
+ * `SESSION_SECRET` arrives at request time.
  *
- * ⚠️ **A layout is not a security boundary on its own.** Next renders layouts and
- * pages in parallel, and a layout's `redirect()` does not cancel a child's data
- * fetch that has already started. So a page must never treat "the layout guarded
- * me" as permission to skip its own `requireAdmin()`. Every page calls it. That is
- * not redundant: it costs one JWT-only `GET /auth/me` and it is what makes the
- * page's own access check true rather than inherited. It is also why Next's own
- * documentation says to authorise in the page or the data layer, never in a
- * layout.
+ * So a guard here can only redirect to `/login?next=/`. Layouts and pages render in
+ * parallel and the layout's redirect resolves first, so it won IN EVERY CASE: an
+ * admin following a link to `/vendors/abc` signed in and landed on the dashboard,
+ * every time, with the page they asked for lost. Verified before and after — the
+ * `next` parameter was `%2F` for all eleven routes.
  *
- * ## Why the identity is not passed down through context
+ * That is a bad trade. The deep-link loss was certain and user-visible; the
+ * protection was redundant, because **every page already calls `requireAdmin(here)`
+ * with its own path** — which it can, being the thing that knows it.
  *
- * Pages that need it call `requireAdmin()` and get their own copy. Threading it
- * through a Context would make every consumer a Client Component, which for
- * server data that never mutates during a render is a bundle cost for nothing.
+ * ## What it still does, and why that part is safe here
+ *
+ * Two things, both path-independent:
+ *
+ *   - Reads the session for the header. `getSession()`, which never redirects and
+ *     never throws. When there is none, the page's own guard redirects and this
+ *     output is discarded, so the shell briefly rendering without an email is not
+ *     observable.
+ *   - Redirects a signed-in NON-ADMIN to `/not-authorised`, which takes no `next` —
+ *     there is nowhere to come back to. This is the cookie's `role` claim, a stale
+ *     hint, so it is a fast-fail and not the boundary; the page's live `GET /auth/me`
+ *     is. It earns its place by stopping the admin shell from rendering around
+ *     someone who cannot use any of it.
+ *
+ * ⚠️ A layout is not a security boundary in this framework, and this one no longer
+ * pretends to be. **Every page under `(dashboard)` must call `requireAdmin(here)`
+ * itself.** That is not belt-and-braces any more; it is the guard.
  */
 export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { identity } = await requireAdmin("/");
+  const session = await getSession();
+
+  // The cookie's claim, used only to keep the shell off a non-admin's screen. No
+  // `next` — /not-authorised is terminal. The live check is on every page.
+  if (session !== null && session.user.role !== "ADMIN") redirect("/not-authorised");
 
   return (
     <div className="flex min-h-screen flex-col">
-      <Header email={identity.email} />
+      <Header email={session?.user.email ?? ""} />
 
       <div className="mx-auto flex w-full max-w-shell flex-1 gap-8 px-4 md:px-8">
         {/*
