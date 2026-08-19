@@ -337,6 +337,33 @@ export const isVendorProfileExists = (error: ApiError): boolean =>
   error.kind === "http" && error.status === 409;
 
 /**
+ * The referral code on the application does not belong to any vendor.
+ *
+ * A 400 that must be shown on the `referralCode` FIELD, not as a form-level
+ * banner: everything else the applicant typed is fine, and a banner reading
+ * "invalid referral code" next to a full form invites them to re-check the store
+ * name. Tell them the code is unknown and to confirm it with whoever gave it to
+ * them — codes are read off phone screens, and the Crockford alphabet upstream
+ * exists so a mistyped one fails visibly instead of crediting a stranger.
+ *
+ * Note this fails the whole application rather than dropping the code. See
+ * `ApplyAsVendorBody.referralCode` for why that is deliberate.
+ */
+export const isInvalidReferralCode = (error: ApiError): boolean =>
+  error.kind === "http" && error.code === "INVALID_REFERRAL_CODE";
+
+/**
+ * The applicant used their own referral code.
+ *
+ * Only reachable on a REAPPLICATION — a first-time applicant has no code yet.
+ * Also a field-level error, and worth its own message: "that's your own code" is
+ * actionable, whereas the generic invalid-code copy would send them off to check
+ * with a referrer who does not exist.
+ */
+export const isSelfReferral = (error: ApiError): boolean =>
+  error.kind === "http" && error.code === "SELF_REFERRAL_NOT_ALLOWED";
+
+/**
  * The platform does not have enough units left for this purchase.
  *
  * Either the vendor asked for more than the pool holds, or another vendor took
